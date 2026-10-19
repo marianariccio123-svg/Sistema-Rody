@@ -11,7 +11,7 @@ Cada uno de los dueños de la heladería. Son los únicos que usan el sistema: n
 _Avoid_: vendedor, empleado, usuario
 
 **Cliente**:
-Persona o comercio al que la heladería le vende helado por tacho y le hace una cotización.
+Persona o comercio, cargado por los dueños con su nombre, al que la heladería le vende helado por tacho y le hace una cotización.
 _Avoid_: mayorista, comprador
 
 **Cliente fijo**:
