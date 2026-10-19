@@ -142,10 +142,22 @@
   .stepper button { width: 34px; height: 34px; border: 0; background: none; font-size: 1.15rem; font-weight: 700; border-radius: 999px; }
   .stepper button:hover { background: var(--active); }
   .stepper output { min-width: 2.2ch; text-align: center; font-weight: 700; }
-  .toggle { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
-  .toggle button { border: 0; background: none; padding: 7px 14px; font-weight: 600; }
-  .toggle button:hover { background: var(--active); }
-  .toggle button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+  /* Elegir una de dos opciones: dos tarjetas iguales con un círculo que se llena en la elegida. */
+  .eleccion { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .eleccion-btn {
+    display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center;
+    min-height: 56px; padding: 10px 12px; text-align: left;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .eleccion-btn::before {
+    content: ""; grid-row: span 2; width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--muted);
+  }
+  .eleccion-btn:hover { background: var(--active); }
+  .eleccion-titulo { font-weight: 700; }
+  .eleccion-btn small { color: var(--muted); font-size: .8rem; }
+  .eleccion-btn[aria-pressed="true"] { background: var(--active); border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+  .eleccion-btn[aria-pressed="true"]::before { border-color: var(--brand); background: radial-gradient(circle, var(--brand) 0 40%, transparent 46%); }
 
   /* Buscador y lista de lo que se lleva */
   #app { display: grid; gap: 24px; }
@@ -161,6 +173,7 @@
   .res-btn span { font-weight: 600; }
   .res-btn small { color: var(--muted); white-space: nowrap; }
   .res-panel { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 4px 12px 12px; background: var(--active); }
+  .res-panel .eleccion { flex: 1 1 100%; }
   .carrito { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .carrito li {
     display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px;
@@ -391,7 +404,7 @@
       const desde = precios.length ? 'desde ' + fmt(Math.min(...precios)) : 'sin precio';
       const panel = abierto
         ? `<div class="res-panel">
-            <div class="toggle" role="group" aria-label="Receta">${RECETAS.map((r) => { const p = precio(s, r); return `<button type="button" data-act="receta" data-val="${r}" aria-pressed="${state.recetaElegida === r}">${r} <span class="num">${p == null ? '—' : fmt(p)}</span></button>`; }).join('')}</div>
+            <div class="eleccion" role="group" aria-label="Receta">${RECETAS.map((r) => { const p = precio(s, r); return `<button type="button" class="eleccion-btn" data-act="receta" data-val="${r}" aria-pressed="${state.recetaElegida === r}"><span class="eleccion-titulo">${r}</span><small class="num">${p == null ? 'sin precio' : fmt(p)}</small></button>`; }).join('')}</div>
             ${stepperHTML('elegida', state.cantElegida, 'tachos')}
             <button type="button" class="btn" data-act="agregar" data-i="${s.i}">Agregar</button>
           </div>`
@@ -412,9 +425,9 @@
       : '';
     return `<div class="envases">
       <h3>¿Compra envases?</h3>
-      <div class="toggle" role="group" aria-label="¿Compra envases?">
-        <button type="button" data-act="envases" data-val="si" aria-pressed="${state.compraEnvases === true}">Sí</button>
-        <button type="button" data-act="envases" data-val="no" aria-pressed="${state.compraEnvases === false}">No, los devuelve</button>
+      <div class="eleccion" role="group" aria-label="¿Compra envases?">
+        <button type="button" class="eleccion-btn" data-act="envases" data-val="si" aria-pressed="${state.compraEnvases === true}"><span class="eleccion-titulo">Sí, los compra</span><small class="num">${fmt(PRECIO_ENVASE)} cada uno</small></button>
+        <button type="button" class="eleccion-btn" data-act="envases" data-val="no" aria-pressed="${state.compraEnvases === false}"><span class="eleccion-titulo">No, los devuelve</span><small>Quedan prestados</small></button>
       </div>
       ${cantidadEnv}
       <p class="info" data-envases-info></p>
