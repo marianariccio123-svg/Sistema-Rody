@@ -25,7 +25,7 @@ Cada variedad de helado que fabrica la heladería (por ejemplo, Ananá, Chocolat
 _Avoid_: gusto, producto
 
 **Receta**:
-Forma de elaborar un sabor: Familiar o Artesanal. El cliente elige cualquiera de las dos, y cada una tiene su propio precio.
+Forma de elaborar un sabor: Familiar o Artesanal. Cada una tiene su propio precio, y la lista de precios del cliente define cuáles puede llevar.
 _Avoid_: calidad, tipo, línea
 
 **Envase**:
@@ -39,7 +39,7 @@ _Avoid_: deuda, saldo
 ### Precios
 
 **Lista de precios**:
-Precio de cada sabor y receta con el que se cotiza. Cada cliente fijo cotiza con una lista especial; los demás clientes, con la Lista general.
+Precio de cada sabor en las recetas que incluye. Cada cliente fijo cotiza con una lista especial, que puede tener una sola receta (la de Terminal solo tiene Familiar); los demás clientes, con la Lista general, que tiene las dos.
 _Avoid_: hoja de precios, tarifa
 
 **Lista general**:
