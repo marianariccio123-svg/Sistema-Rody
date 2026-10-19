@@ -1,6 +1,6 @@
 # Cotizaciones de la heladería
 
-Cómo la heladería calcula y registra lo que le cobra a cada cliente por el helado en tacho que se lleva.
+Cómo Heladería Kokino calcula y registra lo que le cobra a cada cliente por el helado en tacho que se lleva.
 
 ## Language
 

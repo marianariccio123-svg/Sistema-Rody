@@ -169,6 +169,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   }
   .ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+  .ticket-marca { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; margin-bottom: 8px; }
   .ticket table { width: 100%; border-collapse: collapse; font-size: .92rem; }
   .ticket td { padding: 3px 0; vertical-align: top; }
   .ticket td:last-child { text-align: right; white-space: nowrap; padding-left: 12px; }
@@ -213,6 +214,7 @@
 
 <script>
 (() => {
+  const HELADERIA = 'Heladería Kokino';
   const PRECIO_ENVASE = 5000;
   const RECETAS = ['Familiar', 'Artesanal'];
   // [sabor, Lista Terminal (columna redondeada), Lista general Familiar, Lista general Artesanal]
@@ -322,7 +324,7 @@
 
   // Texto para WhatsApp: los asteriscos se ven en negrita.
   function textoCompartir(r) {
-    const out = ['*Cotización*', `Cliente: ${cliente().nombre}`, `Fecha: ${HOY}`, ''];
+    const out = [`*${HELADERIA}*`, `Cotización para: ${cliente().nombre}`, `Fecha: ${HOY}`, ''];
     for (const l of r.lineas) out.push(`${l.cantidad} × ${l.sabor} (${l.receta}): ${l.subtotal == null ? 'precio a confirmar' : fmt(l.subtotal)}`);
     if (r.comprados) out.push(`${r.comprados} × Envase: ${fmt(r.envases)}`);
     out.push('', `*Total: ${fmt(r.total)}*`);
@@ -419,7 +421,7 @@
       ? `<div class="acciones"><button type="button" class="btn" data-act="copiar">Copiar texto</button><a class="btn sec" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div><textarea class="input compartir-texto" id="texto-compartir" readonly hidden>${esc(texto)}</textarea>`
       : '';
     return `<article class="ticket" aria-label="Cotización para enviar">
-      <div class="ticket-head"><div><p class="eyebrow">Cotización para</p><h3>${esc(cliente().nombre)}</h3></div><span class="num muted">${HOY}</span></div>
+      <div class="ticket-head"><div><p class="ticket-marca">${HELADERIA}</p><p class="eyebrow">Cotización para</p><h3>${esc(cliente().nombre)}</h3></div><span class="num muted">${HOY}</span></div>
       ${cuerpo}${faltan}${prestados}${acciones}
     </article>`;
   }

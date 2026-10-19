@@ -1,6 +1,6 @@
 # Sistema Rody
 
-Sistema simple de cotizaciones para una heladería que vende helado por tacho: se elige el cliente, se cargan sabores y cantidades, y el sistema calcula la cotización automáticamente con la lista de precios que le corresponde (hoy se hace en Excel y se envía una foto del resultado).
+Sistema simple de cotizaciones para Heladería Kokino, que vende helado por tacho: se elige el cliente, se cargan sabores y cantidades, y el sistema calcula la cotización automáticamente con la lista de precios que le corresponde (hoy se hace en Excel y se envía una foto del resultado).
 
 ## Agent skills
 
