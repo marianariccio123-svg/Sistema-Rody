@@ -1,0 +1,726 @@
+<title>Sistema Rody</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<!--
+  PROTOTIPO DESCARTABLE: no es código de producción.
+  Pregunta: ¿de qué forma les resulta más cómodo a los dueños armar una cotización?
+  Tres variantes en la misma página (A Planilla, B Buscador, C Paso a paso); se cambian con la barra de abajo, las flechas del teclado o #a, #b, #c.
+  Precios provisorios del Excel "Precios 22/04/26 Terminal". Nada se guarda: todo vive en memoria.
+-->
+<style>
+  /* Layout: una columna de hasta 760px; la variante elegida ocupa el centro y una barra flotante abajo cambia de variante. */
+  :root {
+    --bg: #f3f6f8;
+    --surface: #ffffff;
+    --fg: #132f3c;
+    --muted: #557080;
+    --line: #d6e1e7;
+    --chip: #e8eff3;
+    --accent: #b8174f;
+    --accent-fg: #ffffff;
+    --accent-soft: #fbe3ec;
+    --warn: #8a5300;
+    --warn-soft: #fff1d2;
+    --switch-bg: #132f3c;
+    --switch-fg: #ffffff;
+    --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1b22; --surface: #15252e; --fg: #e4edf1; --muted: #9bb2bd; --line: #284350; --chip: #1d323d;
+      --accent: #f0679a; --accent-fg: #22060f; --accent-soft: #3b1a28; --warn: #f3bd5c; --warn-soft: #352812;
+      --switch-bg: #e4edf1; --switch-fg: #0e1b22; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1b22; --surface: #15252e; --fg: #e4edf1; --muted: #9bb2bd; --line: #284350; --chip: #1d323d;
+    --accent: #f0679a; --accent-fg: #22060f; --accent-soft: #3b1a28; --warn: #f3bd5c; --warn-soft: #352812;
+    --switch-bg: #e4edf1; --switch-fg: #0e1b22; color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.45;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 120px;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+    z-index: 10; background: var(--bg);
+  }
+  .app { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; padding-top: 20px; }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+  h1 { font-size: 1.9rem; font-weight: 800; }
+  h2 { font-size: 1.2rem; font-weight: 700; }
+  h3 { font-size: 1.05rem; font-weight: 700; }
+  p { margin: 0; }
+  .eyebrow { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .muted { color: var(--muted); }
+  .num { font-variant-numeric: tabular-nums; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .top { display: grid; gap: 10px; }
+  .aviso {
+    display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+    padding: 10px 12px; border-radius: var(--radius); background: var(--warn-soft); color: var(--warn); font-size: .9rem;
+  }
+  .aviso p { flex: 1 1 260px; min-width: 0; }
+  .link-btn { border: 0; background: none; padding: 0; font-weight: 700; text-decoration: underline; color: inherit; }
+
+  /* Piezas compartidas */
+  .clientes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cliente-btn {
+    display: grid; text-align: left; gap: 1px;
+    border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 16px;
+  }
+  .cliente-btn span { font-weight: 700; }
+  .cliente-btn small, .opcion small { color: var(--muted); font-size: .78rem; }
+  .cliente-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .campo { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+  .campo input, .compartir-texto {
+    font: inherit; color: var(--fg); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; width: 100%;
+  }
+  .stepper {
+    display: inline-flex; align-items: center; flex-shrink: 0;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  }
+  .stepper button { width: 34px; height: 34px; border: 0; background: none; font-size: 1.15rem; font-weight: 700; border-radius: 999px; }
+  .stepper button:hover { background: var(--chip); }
+  .stepper output { min-width: 2.2ch; text-align: center; font-weight: 700; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700;
+    background: var(--accent); color: var(--accent-fg); text-decoration: none;
+  }
+  .btn.sec { background: var(--chip); color: var(--fg); }
+  .btn[disabled] { opacity: .4; cursor: not-allowed; }
+  .chip-warn {
+    display: inline-block; font-size: .72rem; font-weight: 700; color: var(--warn);
+    background: var(--warn-soft); border-radius: 999px; padding: 1px 8px; white-space: nowrap;
+  }
+  .toggle { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+  .toggle button { border: 0; background: none; padding: 7px 14px; font-weight: 600; }
+  .toggle button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+  .envases {
+    display: grid; gap: 10px; padding: 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .envases .fila { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .envases .info { font-size: .86rem; color: var(--muted); }
+  .supuesto { font-style: italic; }
+  .vacio, .ayuda { color: var(--muted); font-size: .9rem; }
+
+  .ticket {
+    display: grid; gap: 10px; padding: 16px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+  .ticket table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  .ticket td { padding: 3px 0; vertical-align: top; }
+  .ticket td:last-child { text-align: right; white-space: nowrap; padding-left: 12px; }
+  .ticket .total-row td { border-top: 1px dashed var(--line); padding-top: 8px; font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; }
+  .ticket .nota { font-size: .85rem; color: var(--muted); }
+  .ticket .faltan { font-size: .84rem; color: var(--warn); background: var(--warn-soft); padding: 8px 10px; border-radius: 8px; }
+  .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+  .compartir-texto { min-height: 140px; font-size: .85rem; }
+
+  /* A · Planilla */
+  .va { display: grid; gap: 14px; }
+  .va-head {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    display: grid; gap: 10px; padding-block: 10px; background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  .va-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .va-total strong { font-family: var(--font-display); font-size: 1.45rem; }
+  .tabla-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .planilla { width: 100%; border-collapse: collapse; }
+  .planilla thead th {
+    text-align: left; font-size: .72rem; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); padding: 10px; border-bottom: 1px solid var(--line);
+  }
+  .planilla th[scope="row"] { text-align: left; font-weight: 600; }
+  .planilla th[scope="row"], .planilla td { padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .planilla tbody tr:last-child > * { border-bottom: 0; }
+  .planilla tr.con-cant > * { background: var(--accent-soft); }
+  .celda { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .celda input {
+    width: 60px; font: inherit; padding: 5px 6px; text-align: center;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg);
+  }
+  .celda .precio { font-size: .78rem; color: var(--muted); }
+
+  /* B · Buscador */
+  .vb { display: grid; gap: 16px; }
+  .vb-grid { display: grid; gap: 20px; }
+  .vb-col { display: grid; gap: 12px; min-width: 0; align-content: start; }
+  .resultados {
+    list-style: none; margin: 0; padding: 0; max-height: 380px; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .resultados li + li { border-top: 1px solid var(--line); }
+  .resultados .vacio { padding: 12px; }
+  .res-btn { width: 100%; display: flex; justify-content: space-between; gap: 12px; padding: 12px; border: 0; background: none; text-align: left; }
+  .res-btn span { font-weight: 600; }
+  .res-btn small { color: var(--muted); white-space: nowrap; }
+  .res-btn[aria-expanded="true"] { background: var(--accent-soft); }
+  .res-panel { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 4px 12px 12px; background: var(--accent-soft); }
+  .carrito { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .carrito li {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .carrito li > div { flex: 1 1 140px; min-width: 0; }
+  .quitar { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 4px; }
+  @media (min-width: 720px) {
+    .vb-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+    .vb-buscar { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+  }
+
+  /* C · Paso a paso */
+  .vc { display: grid; gap: 18px; }
+  .pasos { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+  .pasos li { flex: 1; min-width: 0; border-top: 3px solid var(--line); }
+  .pasos li.hecho { border-color: var(--fg); }
+  .pasos li[aria-current="step"] { border-color: var(--accent); }
+  .pasos button {
+    width: 100%; border: 0; background: none; text-align: left; padding: 6px 0 0;
+    font-size: .8rem; color: var(--muted);
+  }
+  .pasos li[aria-current="step"] button { color: var(--fg); font-weight: 700; }
+  .vc-cuerpo { display: grid; gap: 14px; }
+  .grande { display: grid; gap: 10px; }
+  .opcion {
+    display: grid; gap: 2px; text-align: left; padding: 16px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .opcion span { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; }
+  .opcion[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+  .vc-mini { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .tile { display: grid; gap: 6px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .tile.activa { border-color: var(--accent); background: var(--accent-soft); }
+  .tile-fila { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: .86rem; }
+  .tile-fila small { display: block; }
+  .nav-pasos { display: flex; justify-content: space-between; gap: 10px; }
+
+  /* Datos del prototipo y barra para cambiar de variante */
+  .estado { font-size: .85rem; color: var(--muted); }
+  .estado summary { cursor: pointer; }
+  .estado pre {
+    margin: 8px 0 0; padding: 10px; overflow-x: auto; font-size: .78rem; color: var(--fg);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .switcher {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+    display: flex; align-items: center; gap: 2px; padding: 4px; max-width: calc(100vw - 32px);
+    background: var(--switch-bg); color: var(--switch-fg); border-radius: 999px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .28);
+  }
+  .switcher button { width: 42px; height: 42px; border: 0; border-radius: 999px; background: transparent; font-size: 1.5rem; line-height: 1; }
+  .switcher button:hover { background: color-mix(in srgb, var(--switch-fg) 16%, transparent); }
+  #sw-label { padding: 0 6px; font-size: .9rem; font-weight: 700; white-space: nowrap; }
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 21;
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 32px);
+    padding: 8px 14px; border-radius: 999px; background: var(--fg); color: var(--bg); font-weight: 600; font-size: .9rem;
+  }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Sistema Rody · Prototipo</p>
+      <h1>Nueva cotización</h1>
+    </div>
+    <div class="aviso">
+      <p><strong>Versión de prueba.</strong> Precios provisorios del Excel del 22/04/26, cantidades en tachos y nada se guarda. Hay una cotización de ejemplo cargada. Con las flechas de abajo ves las 3 formas de armarla.</p>
+      <button type="button" class="link-btn" data-act="vaciar">Empezar de cero</button>
+    </div>
+  </header>
+  <main id="variante"></main>
+  <details class="estado">
+    <summary>Ver los datos de esta cotización</summary>
+    <pre id="estado"></pre>
+  </details>
+</div>
+<nav class="switcher" aria-label="Cambiar de variante">
+  <button type="button" data-act="prev" aria-label="Variante anterior">‹</button>
+  <span id="sw-label" aria-live="polite"></span>
+  <button type="button" data-act="next" aria-label="Variante siguiente">›</button>
+</nav>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const PRECIO_ENVASE = 5000;
+  const RECETAS = ['Familiar', 'Artesanal'];
+  // [sabor, Lista Terminal (columna redondeada), Lista general Familiar, Lista general Artesanal]
+  // null = la Lista general del Excel no tiene precio para ese sabor.
+  const DATOS = [
+    ['Ananá', 41000, 26000, 31200],
+    ['Durazno', 41000, 26000, 31200],
+    ['Limón', 41000, 26000, 31200],
+    ['Frutilla al agua', 41000, 26000, 31200],
+    ['Ananá al Champagne', 46000, 35000, 42000],
+    ['Arándanos', 46000, 35000, 42000],
+    ['Vainilla', 48000, 35000, 42000],
+    ['Crema Americana', 48000, 35000, 42000],
+    ['Flan al Caramelo', 52000, 35000, 42000],
+    ['Granizado', 52000, 35000, 42000],
+    ['Banana Split', 52000, 35000, 42000],
+    ['Frutos del Bosque', 52000, 35000, 42000],
+    ['Frutilla a la crema', 52000, 35000, 42000],
+    ['Crema del Cielo', 52000, 35000, 42000],
+    ['Chocolate', 58000, 40000, 48000],
+    ['Dulce de Leche', 58000, 40000, 48000],
+    ['Dulce de leche granizado', 60000, 40000, 48000],
+    ['Chocolate blanco', 58000, 40000, 48000],
+    ['Dulce de leche goloso', 60000, null, null],
+    ['Mousse Limón', 60000, 40000, 48000],
+    ['Dulce de leche con nuez', 60000, 48000, 57600],
+    ['Menta', 60000, null, null],
+    ['Crema Rusa', 60000, 48000, 57600],
+    ['Tentación', 60000, null, null],
+    ['Kokino', 60000, null, null],
+    ['Maracuyá', 60000, null, null],
+    ['Coquicukis', 60000, null, null],
+    ['Almendrado', 60000, 48000, 57600],
+    ['Chocotorta', 60000, null, null],
+    ['Coco y dulce de leche', 60000, 48000, 57600],
+    ['Melón', 65000, 48000, 57600],
+    ['Crema Oriental', 65000, 48000, 57600],
+    ['Cerezas a la crema', 69000, 60000, 72000],
+    ['Kinotos al wiski', 58000, 48000, 57600],
+    ['Higos al coñac', 58000, 48000, 57600],
+    ['Chocolate a la cubana', 58000, 48000, 57600],
+    ['Chocolate con almendras', 65000, 48000, 57600],
+    ['Sambayón', 70000, 60000, 72000],
+    ['Rocher', 80000, 60000, 72000],
+    ['Amargo', 70000, 60000, 72000],
+  ];
+  const SABORES = DATOS.map(([nombre, terminal, familiar, artesanal], i) => ({ i, nombre, terminal, familiar, artesanal }));
+  const CLIENTES = [
+    { id: 'terminal', nombre: 'Terminal', tipo: 'Cliente fijo', lista: 'Lista Terminal' },
+    { id: 'otro', nombre: 'Otro cliente', tipo: 'Cualquier cliente', lista: 'Lista general' },
+  ];
+  const VARIANTES = [
+    { k: 'a', nombre: 'Planilla' },
+    { k: 'b', nombre: 'Buscador' },
+    { k: 'c', nombre: 'Paso a paso' },
+  ];
+  const HOY = new Date().toLocaleDateString('es-AR');
+  const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
+
+  const state = {
+    variante: 'a',
+    cliente: 'terminal',
+    nombreOtro: '',
+    cant: {},             // "índice|Receta" -> tachos
+    compraEnvases: null,  // null = todavía sin responder
+    envasesComprados: 0,
+    busqueda: '',
+    abierto: null,
+    recetaB: 'Familiar',
+    cantB: 1,
+    paso: 1,
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+  const fmt = (n) => '$' + pesos.format(n);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const normalizar = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const indice = (nombre) => SABORES.findIndex((s) => s.nombre === nombre);
+
+  const cliente = () => CLIENTES.find((c) => c.id === state.cliente);
+  const nombreCliente = () => state.cliente === 'otro' ? (state.nombreOtro.trim() || 'Cliente sin nombre') : 'Terminal';
+
+  // Provisorio: la hoja Terminal tiene un solo precio por sabor, así que vale para las dos recetas.
+  function precio(s, receta) {
+    if (state.cliente === 'terminal') return s.terminal;
+    return receta === 'Familiar' ? s.familiar : s.artesanal;
+  }
+  const cantidad = (i, receta) => state.cant[i + '|' + receta] || 0;
+  function setCantidad(i, receta, q) {
+    const key = i + '|' + receta;
+    q = Math.max(0, Math.min(999, Math.floor(Number(q) || 0)));
+    if (q) state.cant[key] = q; else delete state.cant[key];
+  }
+
+  function calcular() {
+    const lineas = [];
+    for (const s of SABORES) {
+      for (const r of RECETAS) {
+        const q = cantidad(s.i, r);
+        if (!q) continue;
+        const p = precio(s, r);
+        lineas.push({ i: s.i, sabor: s.nombre, receta: r, cantidad: q, precio: p, subtotal: p == null ? null : p * q });
+      }
+    }
+    const tachos = lineas.reduce((a, l) => a + l.cantidad, 0);
+    const comprados = state.compraEnvases ? Math.min(state.envasesComprados, tachos) : 0;
+    const helado = lineas.reduce((a, l) => a + (l.subtotal || 0), 0);
+    const envases = comprados * PRECIO_ENVASE;
+    return {
+      lineas, tachos, comprados, prestados: tachos - comprados, helado, envases,
+      total: helado + envases, sinPrecio: lineas.filter((l) => l.precio == null),
+    };
+  }
+
+  function textoCompartir(r) {
+    const out = [`Cotización · ${nombreCliente()} · ${HOY}`, ''];
+    for (const l of r.lineas) out.push(`${l.cantidad} × ${l.sabor} (${l.receta}): ${l.subtotal == null ? 'precio a confirmar' : fmt(l.subtotal)}`);
+    if (r.comprados) out.push(`${r.comprados} × Envase: ${fmt(r.envases)}`);
+    out.push('', `TOTAL: ${fmt(r.total)}`);
+    if (r.prestados) out.push(`Envases prestados a devolver: ${r.prestados}`);
+    return out.join('\n');
+  }
+
+  /* ---------- Piezas compartidas ---------- */
+
+  function stepperHTML(key, valor, etiqueta) {
+    const extra = key === 'env' ? ' data-env-out' : '';
+    return `<span class="stepper"><button type="button" data-act="menos" data-key="${key}" aria-label="Restar ${etiqueta}">−</button><output class="num"${extra}>${valor}</output><button type="button" data-act="mas" data-key="${key}" aria-label="Sumar ${etiqueta}">+</button></span>`;
+  }
+
+  function clientesHTML(estilo) {
+    const grande = estilo === 'opciones';
+    const botones = CLIENTES.map((c) => `<button type="button" class="${grande ? 'opcion' : 'cliente-btn'}" data-act="cliente" data-val="${c.id}" aria-pressed="${state.cliente === c.id}"><span>${esc(c.nombre)}</span><small>${esc(c.tipo)} · ${esc(c.lista)}</small></button>`).join('');
+    const nombre = state.cliente === 'otro'
+      ? `<label class="campo">Nombre del cliente (opcional)<input id="nombre-otro" type="text" autocomplete="off" data-input="nombre" value="${esc(state.nombreOtro)}" placeholder="Ej.: Salón de fiestas"></label>`
+      : '';
+    return `<div class="${grande ? 'grande' : 'clientes'}" role="group" aria-label="Cliente">${botones}</div>${nombre}`;
+  }
+
+  function envasesHTML() {
+    const cantidadEnv = state.compraEnvases
+      ? `<div class="fila"><span>Envases que compra</span>${stepperHTML('env', state.envasesComprados, 'envase')}<span class="muted num">× ${fmt(PRECIO_ENVASE)}</span></div>`
+      : '';
+    return `<div class="envases">
+      <h3>¿Compra envases?</h3>
+      <div class="toggle" role="group" aria-label="¿Compra envases?">
+        <button type="button" data-act="envases" data-val="si" aria-pressed="${state.compraEnvases === true}">Sí</button>
+        <button type="button" data-act="envases" data-val="no" aria-pressed="${state.compraEnvases === false}">No, los devuelve</button>
+      </div>
+      ${cantidadEnv}
+      <p class="info" data-envases-info></p>
+    </div>`;
+  }
+
+  function envasesInfo(r) {
+    if (!r.tachos) return 'Cargá sabores para ver los envases.';
+    return `Se lleva ${r.tachos} ${r.tachos === 1 ? 'tacho' : 'tachos'}: ${r.comprados} con envase comprado y <strong>${r.prestados} con envase prestado</strong> (a devolver). <span class="supuesto">Supone 1 envase por tacho.</span>`;
+  }
+
+  function ticketHTML() {
+    const r = calcular();
+    const filas = r.lineas.map((l) => `<tr><td><span class="num">${l.cantidad}</span> × ${esc(l.sabor)} <small class="muted">${l.receta}</small></td><td class="num">${l.subtotal == null ? '<span class="chip-warn">sin precio</span>' : fmt(l.subtotal)}</td></tr>`).join('');
+    const cuerpo = r.lineas.length
+      ? `<table><tbody>${filas}${r.comprados ? `<tr><td><span class="num">${r.comprados}</span> × Envase comprado</td><td class="num">${fmt(r.envases)}</td></tr>` : ''}<tr class="total-row"><td>Total${r.sinPrecio.length ? ' parcial' : ''}</td><td class="num">${fmt(r.total)}</td></tr></tbody></table>`
+      : '<p class="nota">Todavía no se cargó ningún sabor.</p>';
+    const faltan = r.sinPrecio.length
+      ? `<p class="faltan">Falta el precio de ${r.sinPrecio.map((l) => `${esc(l.sabor)} (${l.receta})`).join(', ')} en la Lista general. El total no los incluye.</p>`
+      : '';
+    const prestados = r.prestados ? `<p class="nota">Envases prestados a devolver: <strong class="num">${r.prestados}</strong></p>` : '';
+    const texto = textoCompartir(r);
+    const acciones = r.lineas.length
+      ? `<div class="acciones"><button type="button" class="btn" data-act="copiar">Copiar texto</button><a class="btn sec" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div><textarea class="compartir-texto" id="texto-compartir" readonly hidden>${esc(texto)}</textarea>`
+      : '';
+    return `<article class="ticket" aria-label="Cotización para enviar">
+      <div class="ticket-head"><div><p class="eyebrow">Cotización</p><h3>${esc(nombreCliente())}</h3><small class="muted">${esc(cliente().lista)}</small></div><span class="num muted">${HOY}</span></div>
+      ${cuerpo}${faltan}${prestados}${acciones}
+    </article>`;
+  }
+
+  /* ---------- A · Planilla: todos los sabores en una tabla, como el Excel ---------- */
+
+  function varianteA() {
+    const filas = SABORES.map((s) => {
+      const celdas = RECETAS.map((r) => {
+        const p = precio(s, r);
+        return `<td><div class="celda"><input id="a-${s.i}-${r[0]}" type="number" inputmode="numeric" min="0" max="999" placeholder="0" data-input="cant" data-key="${s.i}|${r}" value="${cantidad(s.i, r) || ''}" aria-label="Tachos de ${esc(s.nombre)}, receta ${r}"><span class="precio num">${p == null ? '<span class="chip-warn">sin precio</span>' : fmt(p)}</span></div></td>`;
+      }).join('');
+      return `<tr data-fila="${s.i}"><th scope="row">${esc(s.nombre)}</th>${celdas}</tr>`;
+    }).join('');
+    return `<section class="va" aria-label="Variante A: planilla">
+      <div class="va-head">
+        ${clientesHTML('chips')}
+        <div class="va-total"><span class="muted"><span class="num" data-tachos>0</span> tachos</span><strong class="num" data-total>$0</strong></div>
+      </div>
+      <p class="ayuda">Escribí cuántos tachos lleva al lado de cada sabor, como en el Excel.</p>
+      <div class="tabla-wrap"><table class="planilla"><thead><tr><th scope="col">Sabor</th><th scope="col">Familiar</th><th scope="col">Artesanal</th></tr></thead><tbody>${filas}</tbody></table></div>
+      ${envasesHTML()}
+      <div data-ticket></div>
+    </section>`;
+  }
+
+  /* ---------- B · Buscador: se busca un sabor y se agrega a la lista ---------- */
+
+  function resultadosHTML() {
+    const q = normalizar(state.busqueda);
+    const lista = SABORES.filter((s) => normalizar(s.nombre).includes(q));
+    if (!lista.length) return `<li class="vacio">No hay sabores que coincidan con "${esc(state.busqueda)}".</li>`;
+    return lista.map((s) => {
+      const abierto = state.abierto === s.i;
+      const precios = RECETAS.map((r) => precio(s, r)).filter((p) => p != null);
+      const desde = precios.length ? 'desde ' + fmt(Math.min(...precios)) : 'sin precio';
+      const panel = abierto
+        ? `<div class="res-panel">
+            <div class="toggle" role="group" aria-label="Receta">${RECETAS.map((r) => { const p = precio(s, r); return `<button type="button" data-act="receta-b" data-val="${r}" aria-pressed="${state.recetaB === r}">${r} <span class="num">${p == null ? '—' : fmt(p)}</span></button>`; }).join('')}</div>
+            ${stepperHTML('b', state.cantB, 'tachos')}
+            <button type="button" class="btn" data-act="agregar" data-i="${s.i}">Agregar</button>
+          </div>`
+        : '';
+      return `<li><button type="button" class="res-btn" data-act="abrir" data-i="${s.i}" aria-expanded="${abierto}"><span>${esc(s.nombre)}</span><small class="num">${desde}</small></button>${panel}</li>`;
+    }).join('');
+  }
+
+  function carritoHTML() {
+    const r = calcular();
+    if (!r.lineas.length) return '<p class="vacio">Todavía no agregaste sabores. Buscalos en la lista.</p>';
+    return `<ul class="carrito">${r.lineas.map((l) => `<li><div><strong>${esc(l.sabor)}</strong> <small class="muted">${l.receta}</small></div>${stepperHTML(l.i + '|' + l.receta, l.cantidad, esc(l.sabor))}<button type="button" class="quitar" data-act="quitar" data-key="${l.i}|${l.receta}" aria-label="Quitar ${esc(l.sabor)} ${l.receta}">Quitar</button></li>`).join('')}</ul>`;
+  }
+
+  function varianteB() {
+    return `<section class="vb" aria-label="Variante B: buscador">
+      ${clientesHTML('chips')}
+      <div class="vb-grid">
+        <div class="vb-col vb-buscar">
+          <h2>Agregar sabor</h2>
+          <label class="campo">Buscar entre los ${SABORES.length} sabores<input id="b-buscar" type="search" autocomplete="off" data-input="buscar" value="${esc(state.busqueda)}" placeholder="Ej.: dulce de leche"></label>
+          <ul class="resultados" id="b-resultados">${resultadosHTML()}</ul>
+        </div>
+        <div class="vb-col">
+          <h2>Lo que se lleva</h2>
+          ${carritoHTML()}
+          ${envasesHTML()}
+          <div data-ticket></div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  /* ---------- C · Paso a paso: cliente, sabores, envases y enviar ---------- */
+
+  function tileHTML(s) {
+    const activa = RECETAS.some((r) => cantidad(s.i, r));
+    const filas = RECETAS.map((r) => {
+      const p = precio(s, r);
+      return `<div class="tile-fila"><span>${r}<small class="num muted">${p == null ? 'sin precio' : fmt(p)}</small></span>${stepperHTML(s.i + '|' + r, cantidad(s.i, r), `${esc(s.nombre)} ${r}`)}</div>`;
+    }).join('');
+    return `<div class="tile${activa ? ' activa' : ''}"><strong>${esc(s.nombre)}</strong>${filas}</div>`;
+  }
+
+  function varianteC() {
+    const pasos = ['Cliente', 'Sabores', 'Envases', 'Enviar'];
+    let cuerpo = '';
+    if (state.paso === 1) cuerpo = `<h2>¿Para quién es la cotización?</h2>${clientesHTML('opciones')}`;
+    if (state.paso === 2) cuerpo = `<div class="vc-mini"><h2>¿Qué sabores se lleva?</h2><span class="muted"><span class="num" data-tachos>0</span> tachos · <span class="num" data-total>$0</span></span></div><div class="tiles">${SABORES.map(tileHTML).join('')}</div>`;
+    if (state.paso === 3) cuerpo = envasesHTML();
+    if (state.paso === 4) cuerpo = '<h2>Revisá y enviá</h2><div data-ticket></div>';
+    const lista = pasos.map((p, n) => {
+      const num = n + 1;
+      const actual = state.paso === num ? ' aria-current="step"' : '';
+      return `<li${actual} class="${state.paso > num ? 'hecho' : ''}"><button type="button" data-act="paso" data-val="${num}">${num}. ${p}</button></li>`;
+    }).join('');
+    return `<section class="vc" aria-label="Variante C: paso a paso">
+      <ol class="pasos">${lista}</ol>
+      <div class="vc-cuerpo">${cuerpo}</div>
+      <div class="nav-pasos">
+        <button type="button" class="btn sec" data-act="paso" data-val="${state.paso - 1}"${state.paso === 1 ? ' disabled' : ''}>Atrás</button>
+        ${state.paso < 4 ? `<button type="button" class="btn" data-act="paso" data-val="${state.paso + 1}">Siguiente</button>` : ''}
+      </div>
+    </section>`;
+  }
+
+  /* ---------- Render ---------- */
+
+  const main = $('#variante');
+
+  function limitarEnvases() {
+    const t = calcular().tachos;
+    if (state.envasesComprados > t) state.envasesComprados = t;
+  }
+
+  function render() {
+    limitarEnvases();
+    const v = state.variante;
+    main.innerHTML = v === 'a' ? varianteA() : v === 'b' ? varianteB() : varianteC();
+    $('#sw-label').textContent = `${v.toUpperCase()} · ${VARIANTES.find((x) => x.k === v).nombre}`;
+    refrescar();
+  }
+
+  // Actualiza lo calculado sin volver a dibujar los campos donde se está escribiendo.
+  function refrescar() {
+    limitarEnvases();
+    const r = calcular();
+    document.querySelectorAll('[data-total]').forEach((el) => { el.textContent = fmt(r.total); });
+    document.querySelectorAll('[data-tachos]').forEach((el) => { el.textContent = r.tachos; });
+    document.querySelectorAll('[data-envases-info]').forEach((el) => { el.innerHTML = envasesInfo(r); });
+    document.querySelectorAll('[data-env-out]').forEach((el) => { el.textContent = state.envasesComprados; });
+    document.querySelectorAll('[data-ticket]').forEach((el) => { el.innerHTML = ticketHTML(); });
+    document.querySelectorAll('tr[data-fila]').forEach((tr) => {
+      tr.classList.toggle('con-cant', RECETAS.some((rec) => cantidad(+tr.dataset.fila, rec)));
+    });
+    $('#estado').textContent = JSON.stringify({
+      variante: $('#sw-label').textContent,
+      cliente: nombreCliente(),
+      lista: cliente().lista,
+      lineas: r.lineas.map((l) => ({ sabor: l.sabor, receta: l.receta, tachos: l.cantidad, precio: l.precio, subtotal: l.subtotal })),
+      envases: { compra: state.compraEnvases, comprados: r.comprados, prestados: r.prestados },
+      total: r.total,
+    }, null, 2);
+  }
+
+  function ajustar(key, delta) {
+    if (key === 'env') {
+      state.envasesComprados = Math.max(0, Math.min(calcular().tachos, state.envasesComprados + delta));
+    } else if (key === 'b') {
+      state.cantB = Math.max(1, Math.min(999, state.cantB + delta));
+    } else {
+      const [i, r] = key.split('|');
+      setCantidad(+i, r, cantidad(+i, r) + delta);
+    }
+  }
+
+  function cambiarVariante(delta) {
+    const idx = VARIANTES.findIndex((v) => v.k === state.variante);
+    state.variante = VARIANTES[(idx + delta + VARIANTES.length) % VARIANTES.length].k;
+    try { history.replaceState(null, '', '#' + state.variante); } catch (_) { /* sin URL compartible, no pasa nada */ }
+    render();
+  }
+
+  let toastTimer;
+  function mostrarToast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+  }
+
+  function copiar() {
+    const texto = textoCompartir(calcular());
+    const aMano = () => {
+      const ta = $('#texto-compartir');
+      if (ta) { ta.hidden = false; ta.focus(); ta.select(); }
+      mostrarToast('No se pudo copiar solo: el texto quedó seleccionado para copiarlo a mano.');
+    };
+    try {
+      navigator.clipboard.writeText(texto).then(() => mostrarToast('Texto copiado. Pegalo en WhatsApp.'), aMano);
+    } catch (_) { aMano(); }
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b || b.disabled) return;
+    const { act, key, val } = b.dataset;
+    switch (act) {
+      case 'prev': return cambiarVariante(-1);
+      case 'next': return cambiarVariante(1);
+      case 'copiar': return copiar();
+      case 'cliente': state.cliente = val; break;
+      case 'mas': ajustar(key, 1); break;
+      case 'menos': ajustar(key, -1); break;
+      case 'envases':
+        state.compraEnvases = val === 'si';
+        if (state.compraEnvases && !state.envasesComprados) state.envasesComprados = Math.min(1, calcular().tachos);
+        break;
+      case 'abrir': {
+        const i = +b.dataset.i;
+        state.abierto = state.abierto === i ? null : i;
+        state.recetaB = 'Familiar';
+        state.cantB = 1;
+        break;
+      }
+      case 'receta-b': state.recetaB = val; break;
+      case 'agregar': {
+        const i = +b.dataset.i;
+        setCantidad(i, state.recetaB, cantidad(i, state.recetaB) + state.cantB);
+        mostrarToast(`Agregado: ${state.cantB} × ${SABORES[i].nombre} (${state.recetaB})`);
+        state.abierto = null;
+        break;
+      }
+      case 'quitar': {
+        const [i, r] = key.split('|');
+        setCantidad(+i, r, 0);
+        break;
+      }
+      case 'paso': {
+        const n = +val;
+        if (n >= 1 && n <= 4) state.paso = n;
+        render();
+        main.scrollIntoView({ block: 'start' });
+        return;
+      }
+      case 'vaciar':
+        state.cant = {};
+        state.compraEnvases = null;
+        state.envasesComprados = 0;
+        state.paso = 1;
+        break;
+      default: return;
+    }
+    // Después de redibujar, devuelve el foco al mismo botón para no perder el lugar.
+    const sel = `[data-act="${act}"]` + (key ? `[data-key="${key}"]` : '') + (val ? `[data-val="${val}"]` : '') + (b.dataset.i ? `[data-i="${b.dataset.i}"]` : '');
+    render();
+    const mismo = document.querySelector(sel);
+    if (mismo) mismo.focus({ preventScroll: true });
+  });
+
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    const tipo = el.dataset && el.dataset.input;
+    if (tipo === 'cant') {
+      const [i, r] = el.dataset.key.split('|');
+      setCantidad(+i, r, el.value);
+      refrescar();
+    } else if (tipo === 'nombre') {
+      state.nombreOtro = el.value;
+      refrescar();
+    } else if (tipo === 'buscar') {
+      state.busqueda = el.value;
+      state.abierto = null;
+      $('#b-resultados').innerHTML = resultadosHTML();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+    e.preventDefault();
+    cambiarVariante(e.key === 'ArrowLeft' ? -1 : 1);
+  });
+
+  window.addEventListener('hashchange', () => {
+    const k = location.hash.slice(1).toLowerCase();
+    if (VARIANTES.some((v) => v.k === k) && k !== state.variante) { state.variante = k; render(); }
+  });
+
+  // Ejemplo precargado para que la primera vista ya muestre una cotización armada.
+  setCantidad(indice('Chocolate'), 'Familiar', 3);
+  setCantidad(indice('Dulce de Leche'), 'Artesanal', 2);
+  setCantidad(indice('Frutilla a la crema'), 'Familiar', 1);
+  state.compraEnvases = true;
+  state.envasesComprados = 2;
+
+  const inicial = location.hash.slice(1).toLowerCase();
+  if (VARIANTES.some((v) => v.k === inicial)) state.variante = inicial;
+  render();
+})();
+</script>
