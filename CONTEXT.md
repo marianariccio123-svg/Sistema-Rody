@@ -36,6 +36,10 @@ _Avoid_: sin envase, con envase
 Cantidad de envases prestados que un cliente todavía no le devolvió a la heladería.
 _Avoid_: deuda, saldo
 
+**Devolución de envases**:
+Registro de cuántos envases prestados le devolvió un cliente a la heladería en un día; descuenta de sus envases adeudados. Un cliente puede devolverlos de a partes.
+_Avoid_: reintegro, retorno
+
 ### Precios
 
 **Lista de precios**:
@@ -49,5 +53,5 @@ _Avoid_: precio mayorista
 ### Cotización
 
 **Cotización**:
-Detalle de los sabores y cantidades que se lleva un cliente, con los precios de su lista de precios, sus envases comprados y el total. Se corrige hasta que refleja lo que el cliente realmente se llevó, y conserva los precios del momento en que se hizo.
+Detalle de los sabores y cantidades que se lleva un cliente, con los precios de su lista de precios, sus envases comprados y el total. Se guarda cuando el cliente se lleva el helado, se corrige hasta que refleja lo que realmente se llevó, y conserva los precios del momento en que se hizo.
 _Avoid_: presupuesto, pedido
