@@ -21,11 +21,11 @@ _Avoid_: mayorista, cliente con antigüedad
 ### Helado
 
 **Sabor**:
-Cada variedad de helado que fabrica la heladería (por ejemplo, Ananá, Chocolate, Rocher).
+Cada variedad de helado que fabrica la heladería (por ejemplo, Ananá, Chocolate, Rocher). Cualquier cliente puede llevar cualquier sabor.
 _Avoid_: gusto, producto
 
 **Receta**:
-Forma de elaborar un sabor: Familiar o Artesanal. Un mismo sabor tiene un precio distinto según su receta.
+Forma de elaborar un sabor: Familiar o Artesanal. El cliente elige cualquiera de las dos, y cada una tiene su propio precio.
 _Avoid_: calidad, tipo, línea
 
 **Envase**:
