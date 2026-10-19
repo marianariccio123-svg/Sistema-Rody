@@ -13,8 +13,10 @@
 <style>
   /* Layout: una columna de hasta 760px; arriba el cliente, abajo buscador y cotización (lado a lado en pantallas anchas). */
   /* Colores: brief de marca de Heladería Kokino (columna "Sistema hoy", ajustada al verde del logo). */
+  /* Siempre claro: no cambia a modo oscuro aunque el celular lo tenga activado. */
   :root {
-    --bg: #FDFCF8;             /* fondo general */
+    color-scheme: light;
+    --bg: #FFFFFF;             /* fondo general: blanco, elegido en lugar del #FDFCF8 del brief */
     --surface: #FFFFFF;        /* paneles: listas, tarjetas, cotización */
     --field: #FDF6EA;          /* fondo de los campos */
     --active: #E5F5EF;         /* fondo activo: hover suave y elemento elegido */
@@ -35,21 +37,6 @@
     --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
     --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
     --radius: 10px;
-  }
-  /* Modo oscuro: derivado del brief, que solo define colores claros. */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #111917; --surface: #18221F; --field: #1E2A26; --active: #1F3A32;
-      --brand-text: #6FD0B9; --marca: #9BE3D1; --fg: #E6EEEB; --muted: #A2B3AE;
-      --error: #FF7A6B; --line: rgba(230, 238, 235, 0.14);
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #111917; --surface: #18221F; --field: #1E2A26; --active: #1F3A32;
-    --brand-text: #6FD0B9; --marca: #9BE3D1; --fg: #E6EEEB; --muted: #A2B3AE;
-    --error: #FF7A6B; --line: rgba(230, 238, 235, 0.14);
-    color-scheme: dark;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -173,7 +160,7 @@
   .res-btn span { font-weight: 600; }
   .res-btn small { color: var(--muted); white-space: nowrap; }
   .res-panel { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 4px 12px 12px; background: var(--active); }
-  .res-panel .eleccion { flex: 1 1 100%; }
+  .res-panel .eleccion, .receta-unica { flex: 1 1 100%; }
   .carrito { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .carrito li {
     display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px;
@@ -299,7 +286,7 @@
   const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 
   const state = {
-    clientes: [{ id: 'terminal', nombre: 'Terminal', fijo: true }],
+    clientes: [{ id: 'terminal', nombre: 'Terminal', fijo: true, recetas: ['Familiar'] }],
     clienteId: 'terminal',
     agregando: false,     // el formulario de cliente nuevo está abierto
     nuevoNombre: '',
@@ -322,9 +309,13 @@
 
   const cliente = () => state.clientes.find((c) => c.id === state.clienteId);
   const listaDe = (c) => c.fijo ? 'Lista ' + c.nombre : 'Lista general';
+  // Recetas que incluye la lista del cliente: Terminal solo compra Familiar; la Lista general tiene las dos.
+  const recetasDe = (c) => c.recetas || RECETAS;
+  const recetaActual = () => recetasDe(cliente()).includes(state.recetaElegida) ? state.recetaElegida : recetasDe(cliente())[0];
 
-  // Provisorio: la hoja Terminal tiene un solo precio por sabor, así que vale para las dos recetas.
+  // Precio en la lista del cliente; null si su lista no incluye esa receta o no tiene precio para ese sabor.
   function precio(s, receta) {
+    if (!recetasDe(cliente()).includes(receta)) return null;
     if (cliente().fijo) return s.terminal;
     return receta === 'Familiar' ? s.familiar : s.artesanal;
   }
@@ -342,7 +333,8 @@
         const q = cantidad(s.i, r);
         if (!q) continue;
         const p = precio(s, r);
-        lineas.push({ i: s.i, sabor: s.nombre, receta: r, cantidad: q, precio: p, subtotal: p == null ? null : p * q });
+        const disponible = recetasDe(cliente()).includes(r);
+        lineas.push({ i: s.i, sabor: s.nombre, receta: r, cantidad: q, disponible, precio: p, subtotal: p == null ? null : p * q });
       }
     }
     const tachos = lineas.reduce((a, l) => a + l.cantidad, 0);
@@ -351,14 +343,16 @@
     const envases = comprados * PRECIO_ENVASE;
     return {
       lineas, tachos, comprados, prestados: tachos - comprados, helado, envases,
-      total: helado + envases, sinPrecio: lineas.filter((l) => l.precio == null),
+      total: helado + envases,
+      sinPrecio: lineas.filter((l) => l.disponible && l.precio == null),
+      noDisponibles: lineas.filter((l) => !l.disponible),
     };
   }
 
   // Texto para WhatsApp: los asteriscos se ven en negrita.
   function textoCompartir(r) {
     const out = [`*${HELADERIA}*`, `Cotización para: ${cliente().nombre}`, `Fecha: ${HOY}`, ''];
-    for (const l of r.lineas) out.push(`${l.cantidad} × ${l.sabor} (${l.receta}): ${l.subtotal == null ? 'precio a confirmar' : fmt(l.subtotal)}`);
+    for (const l of r.lineas) out.push(`${l.cantidad} × ${l.sabor} (${l.receta}): ${l.subtotal != null ? fmt(l.subtotal) : l.disponible ? 'precio a confirmar' : 'no disponible'}`);
     if (r.comprados) out.push(`${r.comprados} × Envase: ${fmt(r.envases)}`);
     out.push('', `*Total: ${fmt(r.total)}*`);
     if (r.prestados) out.push('', `Envases prestados a devolver: ${r.prestados}`);
@@ -373,7 +367,7 @@
   }
 
   function clientesHTML() {
-    const chips = state.clientes.map((c) => `<button type="button" class="cliente-btn" data-act="cliente" data-val="${c.id}" aria-pressed="${state.clienteId === c.id}"><span>${esc(c.nombre)}</span><small>${c.fijo ? 'Cliente fijo · ' : ''}${esc(listaDe(c))}</small></button>`).join('');
+    const chips = state.clientes.map((c) => `<button type="button" class="cliente-btn" data-act="cliente" data-val="${c.id}" aria-pressed="${state.clienteId === c.id}"><span>${esc(c.nombre)}</span><small>${c.fijo ? 'Cliente fijo · ' : ''}${esc(listaDe(c))}${c.recetas ? ' · solo ' + c.recetas.join(' y ') : ''}</small></button>`).join('');
     const nuevo = `<button type="button" class="cliente-btn nuevo" data-act="nuevo-cliente" aria-expanded="${state.agregando}">+ Otro cliente</button>`;
     const form = state.agregando
       ? `<form class="nuevo-form" data-form="cliente" novalidate>
@@ -400,11 +394,17 @@
     if (!lista.length) return `<li class="vacio">No hay sabores que coincidan con "${esc(state.busqueda)}".</li>`;
     return lista.map((s) => {
       const abierto = state.abierto === s.i;
-      const precios = RECETAS.map((r) => precio(s, r)).filter((p) => p != null);
-      const desde = precios.length ? 'desde ' + fmt(Math.min(...precios)) : 'sin precio';
+      const recetas = recetasDe(cliente());
+      const precios = recetas.map((r) => precio(s, r)).filter((p) => p != null);
+      const desde = precios.length ? (recetas.length > 1 ? 'desde ' : '') + fmt(Math.min(...precios)) : 'sin precio';
+      const precioTexto = (r) => { const p = precio(s, r); return p == null ? 'sin precio' : fmt(p); };
+      // Si la lista del cliente tiene una sola receta, no hay nada que elegir: se muestra cuál es.
+      const receta = recetas.length > 1
+        ? `<div class="eleccion" role="group" aria-label="Receta">${recetas.map((r) => `<button type="button" class="eleccion-btn" data-act="receta" data-val="${r}" aria-pressed="${recetaActual() === r}"><span class="eleccion-titulo">${r}</span><small class="num">${precioTexto(r)}</small></button>`).join('')}</div>`
+        : `<p class="receta-unica"><strong>${recetas[0]}</strong> <span class="num">${precioTexto(recetas[0])}</span> <small class="muted">· ${esc(cliente().nombre)} compra solo ${recetas[0]}</small></p>`;
       const panel = abierto
         ? `<div class="res-panel">
-            <div class="eleccion" role="group" aria-label="Receta">${RECETAS.map((r) => { const p = precio(s, r); return `<button type="button" class="eleccion-btn" data-act="receta" data-val="${r}" aria-pressed="${state.recetaElegida === r}"><span class="eleccion-titulo">${r}</span><small class="num">${p == null ? 'sin precio' : fmt(p)}</small></button>`; }).join('')}</div>
+            ${receta}
             ${stepperHTML('elegida', state.cantElegida, 'tachos')}
             <button type="button" class="btn" data-act="agregar" data-i="${s.i}">Agregar</button>
           </div>`
@@ -416,7 +416,7 @@
   function carritoHTML() {
     const r = calcular();
     if (!r.lineas.length) return '<p class="vacio">Todavía no agregaste sabores. Buscalos en la lista.</p>';
-    return `<ul class="carrito">${r.lineas.map((l) => `<li><div><strong>${esc(l.sabor)}</strong> <small class="muted">${l.receta}</small></div>${stepperHTML(l.i + '|' + l.receta, l.cantidad, esc(l.sabor))}<button type="button" class="quitar" data-act="quitar" data-key="${l.i}|${l.receta}" aria-label="Quitar ${esc(l.sabor)} ${l.receta}">Quitar</button></li>`).join('')}</ul>`;
+    return `<ul class="carrito">${r.lineas.map((l) => `<li><div><strong>${esc(l.sabor)}</strong> <small class="muted">${l.receta}</small>${l.disponible ? '' : ` <span class="chip-warn">${esc(cliente().nombre)} no compra ${l.receta}</span>`}</div>${stepperHTML(l.i + '|' + l.receta, l.cantidad, esc(l.sabor))}<button type="button" class="quitar" data-act="quitar" data-key="${l.i}|${l.receta}" aria-label="Quitar ${esc(l.sabor)} ${l.receta}">Quitar</button></li>`).join('')}</ul>`;
   }
 
   function envasesHTML() {
@@ -441,20 +441,27 @@
 
   function ticketHTML() {
     const r = calcular();
-    const filas = r.lineas.map((l) => `<tr><td><span class="num">${l.cantidad}</span> × ${esc(l.sabor)} <small class="muted">${l.receta}</small></td><td class="num">${l.subtotal == null ? '<span class="chip-warn">sin precio</span>' : fmt(l.subtotal)}</td></tr>`).join('');
+    const c = cliente();
+    const marca = (l) => l.subtotal != null ? fmt(l.subtotal) : `<span class="chip-warn">${l.disponible ? 'sin precio' : 'no disponible'}</span>`;
+    const filas = r.lineas.map((l) => `<tr><td><span class="num">${l.cantidad}</span> × ${esc(l.sabor)} <small class="muted">${l.receta}</small></td><td class="num">${marca(l)}</td></tr>`).join('');
+    const parcial = r.sinPrecio.length || r.noDisponibles.length;
     const cuerpo = r.lineas.length
-      ? `<table><tbody>${filas}${r.comprados ? `<tr><td><span class="num">${r.comprados}</span> × Envase</td><td class="num">${fmt(r.envases)}</td></tr>` : ''}<tr class="total-row"><td>Total${r.sinPrecio.length ? ' parcial' : ''}</td><td class="num">${fmt(r.total)}</td></tr></tbody></table>`
+      ? `<table><tbody>${filas}${r.comprados ? `<tr><td><span class="num">${r.comprados}</span> × Envase</td><td class="num">${fmt(r.envases)}</td></tr>` : ''}<tr class="total-row"><td>Total${parcial ? ' parcial' : ''}</td><td class="num">${fmt(r.total)}</td></tr></tbody></table>`
       : '<p class="nota">Todavía no se cargó ningún sabor.</p>';
-    const faltan = r.sinPrecio.length
-      ? `<p class="faltan">Falta el precio de ${r.sinPrecio.map((l) => `${esc(l.sabor)} (${l.receta})`).join(', ')} en la Lista general. El total no los incluye.</p>`
+    const lista = (ls) => ls.map((l) => `${esc(l.sabor)} (${l.receta})`).join(', ');
+    const noDisponibles = r.noDisponibles.length
+      ? `<p class="faltan">${esc(c.nombre)} solo compra ${recetasDe(c).join(' y ')}: quitá ${lista(r.noDisponibles)} o elegí otro cliente. El total no los incluye.</p>`
       : '';
+    const faltan = (r.sinPrecio.length
+      ? `<p class="faltan">Falta el precio de ${lista(r.sinPrecio)} en la ${esc(listaDe(c))}. El total no los incluye.</p>`
+      : '') + noDisponibles;
     const prestados = r.prestados ? `<p class="nota">Envases prestados a devolver: <strong class="num">${r.prestados}</strong></p>` : '';
     const texto = textoCompartir(r);
     const acciones = r.lineas.length
       ? `<div class="acciones"><button type="button" class="btn" data-act="copiar">Copiar texto</button><a class="btn sec" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div><textarea class="input compartir-texto" id="texto-compartir" readonly hidden>${esc(texto)}</textarea>`
       : '';
     return `<article class="ticket" aria-label="Cotización para enviar">
-      <div class="ticket-head"><div><p class="ticket-marca">${HELADERIA}</p><p class="eyebrow">Cotización para</p><h3>${esc(cliente().nombre)}</h3></div><span class="num muted">${HOY}</span></div>
+      <div class="ticket-head"><div><p class="ticket-marca">${HELADERIA}</p><p class="eyebrow">Cotización para</p><h3>${esc(c.nombre)}</h3></div><span class="num muted">${HOY}</span></div>
       ${cuerpo}${faltan}${prestados}${acciones}
     </article>`;
   }
@@ -599,8 +606,9 @@
       case 'receta': state.recetaElegida = val; break;
       case 'agregar': {
         const i = +b.dataset.i;
-        setCantidad(i, state.recetaElegida, cantidad(i, state.recetaElegida) + state.cantElegida);
-        mostrarToast(`Agregado: ${state.cantElegida} × ${SABORES[i].nombre} (${state.recetaElegida})`, true);
+        const receta = recetaActual();
+        setCantidad(i, receta, cantidad(i, receta) + state.cantElegida);
+        mostrarToast(`Agregado: ${state.cantElegida} × ${SABORES[i].nombre} (${receta})`, true);
         state.abierto = null;
         break;
       }
@@ -643,7 +651,7 @@
 
   // Ejemplo precargado para que la primera vista ya muestre una cotización armada.
   setCantidad(indice('Chocolate'), 'Familiar', 3);
-  setCantidad(indice('Dulce de Leche'), 'Artesanal', 2);
+  setCantidad(indice('Dulce de Leche'), 'Familiar', 2);
   setCantidad(indice('Frutilla a la crema'), 'Familiar', 1);
   state.compraEnvases = true;
   state.envasesComprados = 2;
