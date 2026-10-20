@@ -75,6 +75,15 @@
   }
 
   .top { display: grid; gap: 10px; }
+  .top-fila { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+  /* Inicio de sesión */
+  .login { min-height: 100vh; display: grid; place-items: center; padding-block: 24px; }
+  .login-form {
+    width: 100%; max-width: 360px; display: grid; gap: 14px; padding: 20px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .login-form .btn:disabled { opacity: .6; cursor: wait; }
   .aviso {
     display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
     padding: 10px 12px; border-radius: var(--radius); font-size: .9rem;
@@ -219,11 +228,27 @@
   .toast.ok { background: var(--brand-pressed); color: var(--on-brand); }
 </style>
 
-<div class="app">
-  <header class="top">
+<section class="login" id="login" hidden>
+  <form class="login-form" data-form="login" novalidate>
     <div>
-      <p class="eyebrow">Sistema Rody · Prototipo</p>
-      <h1>Nueva cotización</h1>
+      <p class="eyebrow">Sistema Rody</p>
+      <h1>Iniciar sesión</h1>
+    </div>
+    <label class="campo">Mail<input class="input" id="login-mail" type="email" autocomplete="username" required></label>
+    <label class="campo">Contraseña<input class="input" id="login-clave" type="password" autocomplete="current-password" required></label>
+    <button type="submit" class="btn" id="login-entrar">Entrar</button>
+    <p class="error" id="login-error" role="alert" hidden></p>
+  </form>
+</section>
+
+<div class="app" id="sistema" hidden>
+  <header class="top">
+    <div class="top-fila">
+      <div>
+        <p class="eyebrow">Sistema Rody · Prototipo</p>
+        <h1>Nueva cotización</h1>
+      </div>
+      <button type="button" class="link-btn" data-act="salir">Cerrar sesión</button>
     </div>
     <div class="aviso">
       <p><strong>Versión de prueba.</strong> Precios provisorios del Excel del 22/04/26, cantidades en tachos y nada se guarda: los clientes que agregues se borran al recargar la página. Hay una cotización de ejemplo cargada.</p>
@@ -238,56 +263,17 @@
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 (() => {
   const HELADERIA = 'Heladería Kokino';
   const PRECIO_ENVASE = 5000;
   const RECETAS = ['Familiar', 'Artesanal'];
-  // [sabor, Lista Terminal (columna redondeada), Lista general Familiar, Lista general Artesanal]
-  // null = la Lista general del Excel no tiene precio para ese sabor.
-  const DATOS = [
-    ['Ananá', 41000, 26000, 31200],
-    ['Durazno', 41000, 26000, 31200],
-    ['Limón', 41000, 26000, 31200],
-    ['Frutilla al agua', 41000, 26000, 31200],
-    ['Ananá al Champagne', 46000, 35000, 42000],
-    ['Arándanos', 46000, 35000, 42000],
-    ['Vainilla', 48000, 35000, 42000],
-    ['Crema Americana', 48000, 35000, 42000],
-    ['Flan al Caramelo', 52000, 35000, 42000],
-    ['Granizado', 52000, 35000, 42000],
-    ['Banana Split', 52000, 35000, 42000],
-    ['Frutos del Bosque', 52000, 35000, 42000],
-    ['Frutilla a la crema', 52000, 35000, 42000],
-    ['Crema del Cielo', 52000, 35000, 42000],
-    ['Chocolate', 58000, 40000, 48000],
-    ['Dulce de Leche', 58000, 40000, 48000],
-    ['Dulce de leche granizado', 60000, 40000, 48000],
-    ['Chocolate blanco', 58000, 40000, 48000],
-    ['Dulce de leche goloso', 60000, null, null],
-    ['Mousse Limón', 60000, 40000, 48000],
-    ['Dulce de leche con nuez', 60000, 48000, 57600],
-    ['Menta', 60000, null, null],
-    ['Crema Rusa', 60000, 48000, 57600],
-    ['Tentación', 60000, null, null],
-    ['Kokino', 60000, null, null],
-    ['Maracuyá', 60000, null, null],
-    ['Coquicukis', 60000, null, null],
-    ['Almendrado', 60000, 48000, 57600],
-    ['Chocotorta', 60000, null, null],
-    ['Coco y dulce de leche', 60000, 48000, 57600],
-    ['Melón', 65000, 48000, 57600],
-    ['Crema Oriental', 65000, 48000, 57600],
-    ['Cerezas a la crema', 69000, 60000, 72000],
-    ['Kinotos al wiski', 58000, 48000, 57600],
-    ['Higos al coñac', 58000, 48000, 57600],
-    ['Chocolate a la cubana', 58000, 48000, 57600],
-    ['Chocolate con almendras', 65000, 48000, 57600],
-    ['Sambayón', 70000, 60000, 72000],
-    ['Rocher', 80000, 60000, 72000],
-    ['Amargo', 70000, 60000, 72000],
-  ];
-  const SABORES = DATOS.map(([nombre, terminal, familiar, artesanal], i) => ({ i, nombre, terminal, familiar, artesanal }));
+  // Los precios viven en Supabase (tabla precios): solo se pueden leer con la sesión iniciada.
+  // La llave pública de Supabase puede ir en el código; lo que protege los datos son las reglas de la tabla.
+  const SUPABASE_URL = 'PEGAR_AQUI_LA_PROJECT_URL';
+  const SUPABASE_KEY = 'PEGAR_AQUI_LA_PUBLISHABLE_KEY';
+  let SABORES = [];   // se cargan al iniciar sesión: { i, nombre, terminal, familiar, artesanal }
   const HOY = new Date().toLocaleDateString('es-AR');
   const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 
@@ -590,6 +576,7 @@
     const { act, key, val } = b.dataset;
     switch (act) {
       case 'copiar': return copiar();
+      case 'salir': return salir();
       case 'cliente': state.clienteId = val; break;
       case 'nuevo-cliente':
         state.agregando = !state.agregando;
@@ -644,7 +631,9 @@
   });
 
   document.addEventListener('submit', (e) => {
-    if (e.target.dataset.form !== 'cliente') return;
+    const form = e.target.dataset.form;
+    if (form === 'login') { e.preventDefault(); return iniciarSesion(); }
+    if (form !== 'cliente') return;
     e.preventDefault();
     agregarCliente();
   });
@@ -661,12 +650,64 @@
     }
   });
 
-  // Ejemplo precargado para que la primera vista ya muestre una cotización armada.
-  setCantidad(indice('Chocolate'), 'Familiar', 3);
-  setCantidad(indice('Dulce de Leche'), 'Familiar', 2);
-  setCantidad(indice('Frutilla a la crema'), 'Familiar', 1);
-  state.compraEnvases = true;
-  state.envasesComprados = 2;
-  render();
+  /* ---------- Sesión ---------- */
+
+  const configurado = !SUPABASE_URL.startsWith('PEGAR') && !SUPABASE_KEY.startsWith('PEGAR');
+  const db = configurado && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+  function mostrarLogin(error = '') {
+    $('#sistema').hidden = true;
+    $('#login').hidden = false;
+    const e = $('#login-error');
+    e.textContent = error;
+    e.hidden = !error;
+  }
+
+  // Trae los precios; sin sesión, las reglas de Supabase no devuelven nada.
+  async function cargarSistema() {
+    const { data, error } = await db.from('precios').select('sabor, terminal, familiar, artesanal').order('orden');
+    if (error || !data.length) return mostrarLogin('No se pudieron cargar los precios. Probá de nuevo en un rato.');
+    SABORES = data.map((f, i) => ({ i, nombre: f.sabor, terminal: f.terminal, familiar: f.familiar, artesanal: f.artesanal }));
+    // Ejemplo precargado para que la primera vista ya muestre una cotización armada.
+    setCantidad(indice('Chocolate'), 'Familiar', 3);
+    setCantidad(indice('Dulce de Leche'), 'Familiar', 2);
+    setCantidad(indice('Frutilla a la crema'), 'Familiar', 1);
+    state.compraEnvases = true;
+    state.envasesComprados = 2;
+    $('#login').hidden = true;
+    $('#sistema').hidden = false;
+    render();
+  }
+
+  async function iniciarSesion() {
+    const email = $('#login-mail').value.trim();
+    const password = $('#login-clave').value;
+    if (!email || !password) return mostrarLogin('Escribí tu mail y tu contraseña.');
+    const boton = $('#login-entrar');
+    boton.disabled = true;
+    boton.textContent = 'Entrando…';
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    boton.disabled = false;
+    boton.textContent = 'Entrar';
+    if (error) return mostrarLogin('Mail o contraseña incorrectos.');
+    cargarSistema();
+  }
+
+  async function salir() {
+    await db.auth.signOut();
+    location.reload();
+  }
+
+  async function arrancar() {
+    if (!db) {
+      mostrarLogin('Falta conectar el sistema con Supabase.');
+      $('#login-entrar').disabled = true;
+      return;
+    }
+    const { data } = await db.auth.getSession();
+    if (data.session) cargarSistema(); else mostrarLogin();
+  }
+
+  arrancar();
 })();
 </script>
