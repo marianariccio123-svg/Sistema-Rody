@@ -84,6 +84,19 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   }
   .login-form .btn:disabled { opacity: .6; cursor: wait; }
+  .login-form .link-btn { justify-self: center; font-weight: 600; }
+  .mensaje { font-size: .86rem; font-weight: 600; padding-left: 8px; border-left: 4px solid var(--error); }
+  .mensaje.ok { border-left-color: var(--brand); }
+  /* Contraseña con un ojo adentro del campo para verla u ocultarla. */
+  .clave { position: relative; }
+  .clave .input { padding-right: 46px; }
+  .ojo {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 38px; height: 38px; display: grid; place-items: center;
+    border: 0; border-radius: 999px; background: none; color: var(--muted);
+  }
+  .ojo:hover { background: var(--active); color: var(--fg); }
+  .ojo svg { width: 20px; height: 20px; }
   .aviso {
     display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
     padding: 10px 12px; border-radius: var(--radius); font-size: .9rem;
@@ -229,15 +242,51 @@
 </style>
 
 <section class="login" id="login" hidden>
+  <!-- Tres pantallas: entrar, pedir el mail para recuperar y elegir la contraseña nueva (al volver desde el mail). -->
   <form class="login-form" data-form="login" novalidate>
     <div>
       <p class="eyebrow">Sistema Rody</p>
       <h1>Iniciar sesión</h1>
     </div>
     <label class="campo">Mail<input class="input" id="login-mail" type="email" autocomplete="username" required></label>
-    <label class="campo">Contraseña<input class="input" id="login-clave" type="password" autocomplete="current-password" required></label>
+    <div class="campo">
+      <label for="login-clave">Contraseña</label>
+      <div class="clave">
+        <input class="input" id="login-clave" type="password" autocomplete="current-password" required>
+        <button type="button" class="ojo" data-act="ojo" aria-label="Mostrar contraseña" aria-pressed="false"></button>
+      </div>
+    </div>
     <button type="submit" class="btn" id="login-entrar">Entrar</button>
-    <p class="error" id="login-error" role="alert" hidden></p>
+    <button type="button" class="link-btn" data-act="olvide">¿Olvidaste tu contraseña?</button>
+    <p class="mensaje" role="alert" hidden></p>
+  </form>
+
+  <form class="login-form" data-form="recuperar" novalidate hidden>
+    <div>
+      <p class="eyebrow">Sistema Rody</p>
+      <h1>Recuperar contraseña</h1>
+    </div>
+    <p class="ayuda">Escribí tu mail y te mandamos un link para elegir una contraseña nueva.</p>
+    <label class="campo">Mail<input class="input" id="recuperar-mail" type="email" autocomplete="username" required></label>
+    <button type="submit" class="btn">Enviar link</button>
+    <button type="button" class="link-btn" data-act="volver-login">Volver a iniciar sesión</button>
+    <p class="mensaje" role="alert" hidden></p>
+  </form>
+
+  <form class="login-form" data-form="nueva-clave" novalidate hidden>
+    <div>
+      <p class="eyebrow">Sistema Rody</p>
+      <h1>Contraseña nueva</h1>
+    </div>
+    <div class="campo">
+      <label for="nueva-clave">Contraseña nueva (mínimo 6 caracteres)</label>
+      <div class="clave">
+        <input class="input" id="nueva-clave" type="password" autocomplete="new-password" minlength="6" required>
+        <button type="button" class="ojo" data-act="ojo" aria-label="Mostrar contraseña" aria-pressed="false"></button>
+      </div>
+    </div>
+    <button type="submit" class="btn">Guardar y entrar</button>
+    <p class="mensaje" role="alert" hidden></p>
   </form>
 </section>
 
@@ -577,6 +626,11 @@
     switch (act) {
       case 'copiar': return copiar();
       case 'salir': return salir();
+      case 'ojo': return alternarOjo(b);
+      case 'olvide':
+        $('#recuperar-mail').value = $('#login-mail').value;
+        return mostrarPantalla('recuperar');
+      case 'volver-login': return mostrarPantalla('login');
       case 'cliente': state.clienteId = val; break;
       case 'nuevo-cliente':
         state.agregando = !state.agregando;
@@ -633,6 +687,8 @@
   document.addEventListener('submit', (e) => {
     const form = e.target.dataset.form;
     if (form === 'login') { e.preventDefault(); return iniciarSesion(); }
+    if (form === 'recuperar') { e.preventDefault(); return pedirLink(); }
+    if (form === 'nueva-clave') { e.preventDefault(); return guardarClaveNueva(); }
     if (form !== 'cliente') return;
     e.preventDefault();
     agregarCliente();
@@ -652,15 +708,66 @@
 
   /* ---------- Sesión ---------- */
 
+  // El link del mail de recuperación vuelve a esta página con "type=recovery" (o con un error si venció).
+  // Se lee antes de crear el cliente, porque Supabase limpia la dirección al leerla.
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const vieneDelMail = hash.get('type') === 'recovery';
+  const errorDelMail = hash.get('error_code');
+
   const configurado = !SUPABASE_URL.startsWith('PEGAR') && !SUPABASE_KEY.startsWith('PEGAR');
   const db = configurado && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-  function mostrarLogin(error = '') {
+  // Muestra una de las tres pantallas de acceso, con un mensaje opcional (error, o confirmación si ok).
+  function mostrarPantalla(nombre, mensaje = '', ok = false) {
     $('#sistema').hidden = true;
     $('#login').hidden = false;
-    const e = $('#login-error');
-    e.textContent = error;
-    e.hidden = !error;
+    document.querySelectorAll('#login form').forEach((f) => { f.hidden = f.dataset.form !== nombre; });
+    const m = $(`[data-form="${nombre}"] .mensaje`);
+    m.textContent = mensaje;
+    m.hidden = !mensaje;
+    m.classList.toggle('ok', ok);
+  }
+  const mostrarLogin = (error = '') => mostrarPantalla('login', error);
+
+  const OJO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const OJO_TACHADO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7c2 0 3.8.7 5.2 1.6M22 12s-3.6 7-10 7c-2 0-3.8-.7-5.2-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
+  document.querySelectorAll('.ojo').forEach((b) => { b.innerHTML = OJO; });
+
+  function alternarOjo(b) {
+    const input = b.parentElement.querySelector('input');
+    const ver = input.type === 'password';
+    input.type = ver ? 'text' : 'password';
+    b.innerHTML = ver ? OJO_TACHADO : OJO;
+    b.setAttribute('aria-pressed', ver);
+    b.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  }
+
+  // Desactiva el botón de envío mientras se espera a Supabase.
+  async function esperando(form, texto, tarea) {
+    const boton = $(`[data-form="${form}"] [type="submit"]`);
+    const original = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = texto;
+    try { return await tarea(); } finally { boton.disabled = false; boton.textContent = original; }
+  }
+
+  async function pedirLink() {
+    const email = $('#recuperar-mail').value.trim();
+    if (!email) return mostrarPantalla('recuperar', 'Escribí tu mail.');
+    const { error } = await esperando('recuperar', 'Enviando…', () =>
+      db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }));
+    if (error) return mostrarPantalla('recuperar', 'No se pudo enviar el mail. Esperá unos minutos y probá de nuevo.');
+    // Mismo mensaje exista o no la cuenta, para no revelar qué mails están cargados.
+    mostrarPantalla('recuperar', `Si ${email} tiene una cuenta, te llega un mail con el link. Revisá también la carpeta de spam.`, true);
+  }
+
+  async function guardarClaveNueva() {
+    const password = $('#nueva-clave').value;
+    if (password.length < 6) return mostrarPantalla('nueva-clave', 'La contraseña tiene que tener al menos 6 caracteres.');
+    const { error } = await esperando('nueva-clave', 'Guardando…', () => db.auth.updateUser({ password }));
+    if (error) return mostrarPantalla('nueva-clave', 'No se pudo guardar. Si el link venció, pedí uno nuevo desde "¿Olvidaste tu contraseña?".');
+    mostrarToast('Contraseña cambiada.', true);
+    cargarSistema();
   }
 
   // Trae los precios; sin sesión, las reglas de Supabase no devuelven nada.
@@ -705,6 +812,9 @@
       return;
     }
     const { data } = await db.auth.getSession();
+    if (location.hash) history.replaceState(null, '', location.pathname);   // que recargar no repita el link
+    if (errorDelMail) return mostrarPantalla('recuperar', 'El link venció o ya se usó. Pedí uno nuevo.');
+    if (vieneDelMail && data.session) return mostrarPantalla('nueva-clave');
     if (data.session) cargarSistema(); else mostrarLogin();
   }
 
