@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sistema Rody</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -85,6 +89,8 @@
     font: inherit; color: var(--fg); background: var(--field);
     border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; width: 100%;
   }
+  /* En iPhone, un campo con letra menor a 16px hace zoom al tocarlo. */
+  @media (max-width: 719px) { .input { font-size: 16px; } }
   .input:focus { border-color: var(--brand); }
   .btn {
     display: inline-flex; align-items: center; justify-content: center;
