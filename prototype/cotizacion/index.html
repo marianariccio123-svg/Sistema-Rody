@@ -498,10 +498,16 @@
     if (state.envasesComprados > t) state.envasesComprados = t;
   }
 
+  // Redibujar todo reinicia el desplazamiento de la lista de sabores: se guarda y se repone para no perder el lugar.
   function render() {
     limitarEnvases();
+    const lista = $('#resultados');
+    const listaY = lista ? lista.scrollTop : 0;
+    const paginaY = window.scrollY;
     main.innerHTML = paginaHTML();
     refrescar();
+    $('#resultados').scrollTop = listaY;
+    window.scrollTo(0, paginaY);
   }
 
   // Actualiza lo calculado sin volver a dibujar los campos donde se está escribiendo.
