@@ -1,0 +1,95 @@
+/* Colores: brief de marca de Heladería Kokino, definidos solo acá. */
+/* Siempre claro: no cambia a modo oscuro aunque el celular lo tenga activado. */
+:root {
+  color-scheme: light;
+  --bg: #FFFFFF;             /* fondo general */
+  --surface: #FFFFFF;        /* paneles: listas, tarjetas, cotización */
+  --field: #FDF6EA;          /* fondo de los campos */
+  --active: #E5F5EF;         /* fondo activo: hover suave y elemento elegido */
+  --brand: #46BDA2;          /* verde de marca: botones y elemento activo */
+  --brand-hover: #3AA68D;    /* verde al pasar el mouse */
+  --brand-pressed: #2E7F6C;  /* verde al apretar; también es el color de éxito */
+  --brand-text: #2E7F6C;     /* verde para textos chicos (el de marca no se lee como texto) */
+  --marca: #123C32;          /* verde profundo: solo momentos de marca */
+  --fg: #1E2624;             /* texto principal */
+  --muted: #4B5D59;          /* texto secundario */
+  --on-brand: #FFFFFF;       /* texto sobre el verde */
+  --warn: #F4A93B;           /* advertencia */
+  --info: #3FA9C9;           /* información */
+  --error: #E24C3B;          /* error */
+  --line: rgba(30, 38, 36, 0.12);  /* bordes suaves */
+  --info-soft: color-mix(in srgb, var(--info) 14%, var(--surface));
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.app { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; padding-top: 20px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: 1.9rem; font-weight: 800; }
+p { margin: 0; }
+.eyebrow { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-text); font-weight: 700; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--brand); outline-offset: 2px;
+}
+
+.top-fila { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+/* Inicio de sesión */
+.login { min-height: 100vh; display: grid; place-items: center; padding-block: 24px; }
+.login-form {
+  width: 100%; max-width: 360px; display: grid; gap: 14px; padding: 20px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.login-form .btn:disabled { opacity: .6; cursor: wait; }
+.login-form .link-btn { justify-self: center; font-weight: 600; }
+.mensaje { font-size: .86rem; font-weight: 600; padding-left: 8px; border-left: 4px solid var(--error); }
+.mensaje.ok { border-left-color: var(--brand); }
+/* Contraseña con un ojo adentro del campo para verla u ocultarla. */
+.clave { position: relative; }
+.clave .input { padding-right: 46px; }
+.ojo {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border: 0; border-radius: 999px; background: none; color: var(--muted);
+}
+.ojo:hover { background: var(--active); color: var(--fg); }
+.ojo svg { width: 20px; height: 20px; }
+
+.aviso {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
+  padding: 10px 12px; border-radius: var(--radius); font-size: .9rem;
+  background: var(--info-soft); color: var(--fg); border-left: 4px solid var(--info);
+}
+.aviso p { flex: 1 1 260px; min-width: 0; }
+.link-btn { border: 0; background: none; padding: 0; font-weight: 700; text-decoration: underline; color: var(--brand-text); }
+
+.campo { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+.ayuda { color: var(--muted); font-size: .9rem; }
+.input {
+  font: inherit; color: var(--fg); background: var(--field);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; width: 100%;
+}
+/* En iPhone, un campo con letra menor a 16px hace zoom al tocarlo. */
+@media (max-width: 719px) { .input { font-size: 16px; } }
+.input:focus { border-color: var(--brand); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 999px; padding: 10px 18px; font-weight: 700;
+  background: var(--brand); color: var(--on-brand); text-decoration: none;
+}
+.btn:hover { background: var(--brand-hover); }
+.btn:active { background: var(--brand-pressed); }
