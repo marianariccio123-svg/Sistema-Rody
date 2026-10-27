@@ -77,7 +77,7 @@ export function NuevaCotizacion() {
       <main className="pagina">
         <Clientes clientes={clientes} elegido={cliente} alElegir={setClienteId} alAgregar={agregarCliente} />
         <div className="grid">
-          <Buscador cliente={cliente} lista={lista} alAgregar={agregarSabor} />
+          <Buscador lista={lista} alAgregar={agregarSabor} />
           <section className="bloque" aria-labelledby="t-lleva">
             <h2 id="t-lleva">Lo que se lleva</h2>
             <Carrito cotizacion={cotizacion} cliente={cliente} alCambiar={cambiarTachos} />
@@ -158,8 +158,8 @@ function Clientes({ clientes, elegido, alElegir, alAgregar }: {
 const precioEn = (lista: ListaPrecios, saborId: string, receta: Receta) =>
   lista.recetas.includes(receta) ? lista.precios.find((p) => p.saborId === saborId && p.receta === receta)?.precio ?? null : null;
 
-function Buscador({ cliente, lista, alAgregar }: {
-  cliente: Cliente; lista: ListaPrecios; alAgregar: (sabor: Sabor, receta: Receta, tachos: number) => void;
+function Buscador({ lista, alAgregar }: {
+  lista: ListaPrecios; alAgregar: (sabor: Sabor, receta: Receta, tachos: number) => void;
 }) {
   const [busqueda, setBusqueda] = useState('');
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -206,8 +206,7 @@ function Buscador({ cliente, lista, alAgregar }: {
                   ) : (
                     // Si la lista del cliente tiene una sola receta, no hay nada que elegir: se muestra cuál es.
                     <p className="receta-unica">
-                      <strong>{lista.recetas[0]}</strong> <span className="num">{precioTexto(s, lista.recetas[0])}</span>{' '}
-                      <small className="muted">· {cliente.nombre} compra solo {lista.recetas[0]}</small>
+                      <strong>{lista.recetas[0]}</strong> <span className="num">{precioTexto(s, lista.recetas[0])}</span>
                     </p>
                   )}
                   <Stepper valor={tachos} etiqueta="tachos" alCambiar={(n) => setTachos(Math.max(1, Math.min(999, n)))} />
