@@ -15,3 +15,12 @@ Se usan las cinco etiquetas por defecto (`needs-triage`, `needs-info`, `ready-fo
 ### Domain docs
 
 Single-context: un `CONTEXT.md` y `docs/adr/` en la raíz. Ver `docs/agents/domain.md`.
+
+## Publicar
+
+Cada push a `claude/youthful-carson-jaomtm` dispara un deploy en Netlify, y el plan gratuito da 300 créditos por mes a 10 créditos por deploy. Por eso los cambios se prueban en la computadora y se publican en tandas:
+
+1. Hacer el cambio y commitearlo local.
+2. Correr `npm run probar` (pruebas, tipos, build y la versión construida en `http://localhost:4173`, también accesible desde el celular en la misma red wifi).
+3. Pedir que se revise ahí.
+4. Hacer `git push` solo cuando se pida explícitamente; varios commits revisados viajan juntos en un solo push.

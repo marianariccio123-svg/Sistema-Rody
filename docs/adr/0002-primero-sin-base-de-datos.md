@@ -1,5 +1,7 @@
 # Primera versión solo en Netlify, sin base de datos ni login
 
+_Reemplazado por el ADR 0003._
+
 Para que los dueños empiecen a usar el sistema ya, la primera versión es solo la pantalla de cotización publicada en Netlify, sin Supabase: no hay inicio de sesión, los precios están escritos en el código (`src/datos/precios.ts`) y los clientes que se agregan quedan guardados en el navegador de cada dispositivo. Reemplaza, por ahora, la parte de Supabase del ADR 0001; la parte de Netlify sigue igual.
 
 ## Consecuencias

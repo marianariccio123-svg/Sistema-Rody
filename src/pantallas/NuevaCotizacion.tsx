@@ -3,24 +3,45 @@ import {
   calcularCotizacion, coincide, formatearFecha, formatearPesos, normalizar, textoWhatsApp,
   type CotizacionCalculada, type ListaPrecios, type Receta, type Renglon,
 } from '../cotizador/cotizador';
-import { TERMINAL, guardarClientes, leerClientes, type Cliente } from '../datos/clientes';
-import { LISTAS, PRECIO_ENVASE, SABORES, type Sabor } from '../datos/precios';
+import type { Cliente, Datos, Lista, Sabor } from '../datos/datos';
 
 const HELADERIA = 'Heladería Kokino';
+const RECETAS: Receta[] = ['Familiar', 'Artesanal'];
+
+// Cada dispositivo recuerda el último cliente elegido; la primera vez arranca con Terminal.
+const CLAVE_ULTIMO_CLIENTE = 'sistema-rody:ultimo-cliente';
+const leerUltimoCliente = () => { try { return localStorage.getItem(CLAVE_ULTIMO_CLIENTE); } catch { return null; } };
+
+const listaDe = (datos: Datos, cliente: Cliente | undefined): Lista =>
+  datos.listas.find((l) => l.id === cliente?.listaId) ?? { id: '', nombre: '', recetas: [], esBase: false, precios: [] };
 
 type Toast = { texto: string; ok: boolean } | null;
 
-export function NuevaCotizacion() {
-  const [clientes, setClientes] = useState<Cliente[]>(leerClientes);
-  const [clienteId, setClienteId] = useState(TERMINAL.id);
+type Props = {
+  datos: Datos;
+  // Devuelve el id del cliente creado, o el del que ya existía con ese nombre.
+  alCrearCliente: (nombre: string, recetas: Receta[]) => Promise<{ id: string; yaExistia: boolean }>;
+  alEditarPrecios: () => void;
+  alSalir: () => void;
+};
+
+export function NuevaCotizacion({ datos, alCrearCliente, alEditarPrecios, alSalir }: Props) {
+  const { clientes, sabores, precioEnvase } = datos;
+  const [clienteId, setClienteId] = useState<string | null>(leerUltimoCliente);
   const [renglones, setRenglones] = useState<Renglon[]>([]);
   const [compraEnvases, setCompraEnvases] = useState<boolean | null>(null);
   const [envasesComprados, setEnvasesComprados] = useState(0);
   const [toast, setToast] = useState<Toast>(null);
 
-  const cliente = clientes.find((c) => c.id === clienteId) ?? TERMINAL;
-  const lista = LISTAS[cliente.listaId];
-  const cotizacion = calcularCotizacion({ lista, precioEnvase: PRECIO_ENVASE, renglones, compraEnvases, envasesComprados });
+  const cliente = clientes.find((c) => c.id === clienteId)
+    ?? clientes.find((c) => normalizar(c.nombre) === 'terminal') ?? clientes[0];
+
+  function elegirCliente(id: string) {
+    setClienteId(id);
+    try { localStorage.setItem(CLAVE_ULTIMO_CLIENTE, id); } catch { /* sin almacenamiento: arranca con Terminal */ }
+  }
+  const lista = listaDe(datos, cliente);
+  const cotizacion = calcularCotizacion({ lista, precioEnvase, renglones, compraEnvases, envasesComprados });
 
   useEffect(() => {
     if (!toast) return;
@@ -28,18 +49,18 @@ export function NuevaCotizacion() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function agregarCliente(nombre: string) {
-    const existente = clientes.find((c) => normalizar(c.nombre) === normalizar(nombre));
-    if (existente) {
-      setClienteId(existente.id);
-      return setToast({ texto: `${existente.nombre} ya estaba cargado: quedó elegido.`, ok: false });
+  async function agregarCliente(nombre: string, recetas: Receta[]) {
+    try {
+      const { id, yaExistia } = await alCrearCliente(nombre, recetas);
+      elegirCliente(id);
+      setToast(yaExistia
+        ? { texto: 'Ese cliente ya estaba cargado: quedó elegido.', ok: false }
+        : { texto: `Cliente agregado: ${nombre}`, ok: true });
+      return true;
+    } catch {
+      setToast({ texto: 'No se pudo agregar el cliente. Revisá la conexión y probá de nuevo.', ok: false });
+      return false;
     }
-    const nuevo: Cliente = { id: crypto.randomUUID(), nombre, listaId: 'general', fijo: false };
-    const todos = [...clientes, nuevo];
-    setClientes(todos);
-    guardarClientes(todos);
-    setClienteId(nuevo.id);
-    setToast({ texto: `Cliente agregado: ${nombre}`, ok: true });
   }
 
   // Si ya estaba el mismo sabor y receta, se suma en el mismo renglón.
@@ -67,41 +88,50 @@ export function NuevaCotizacion() {
 
   return (
     <div className="app">
-      <header className="top-fila">
-        <div>
-          <p className="eyebrow">Sistema Rody</p>
-          <h1>Nueva cotización</h1>
+      <header className="top">
+        <div className="top-fila">
+          <div>
+            <p className="eyebrow">Sistema Rody</p>
+            <h1>Nueva cotización</h1>
+          </div>
+          <button type="button" className="link-btn" onClick={alSalir}>Cerrar sesión</button>
         </div>
-        {renglones.length > 0 && <button type="button" className="link-btn" onClick={empezarDeCero}>Empezar de cero</button>}
+        <div className="top-acciones">
+          <button type="button" className="btn sec" onClick={alEditarPrecios}>Editar precios y sabores</button>
+          {renglones.length > 0 && <button type="button" className="link-btn" onClick={empezarDeCero}>Empezar de cero</button>}
+        </div>
       </header>
       <main className="pagina">
-        <Clientes clientes={clientes} elegido={cliente} alElegir={setClienteId} alAgregar={agregarCliente} />
-        <div className="grid">
-          <Buscador lista={lista} alAgregar={agregarSabor} />
+        <Clientes datos={datos} elegido={cliente} alElegir={elegirCliente} alAgregar={agregarCliente} />
+        {cliente && <div className="grid">
+          <Buscador sabores={sabores} lista={lista} alAgregar={agregarSabor} />
           <section className="bloque" aria-labelledby="t-lleva">
             <h2 id="t-lleva">Lo que se lleva</h2>
             <Carrito cotizacion={cotizacion} cliente={cliente} alCambiar={cambiarTachos} />
             <Envases
               cotizacion={cotizacion}
+              precioEnvase={precioEnvase}
               compraEnvases={compraEnvases}
               alElegir={elegirEnvases}
               alCambiar={(n) => setEnvasesComprados(Math.max(0, Math.min(cotizacion.tachos, n)))}
             />
             <Ticket cotizacion={cotizacion} cliente={cliente} lista={lista} avisar={setToast} />
           </section>
-        </div>
+        </div>}
       </main>
       {toast && <div className={'toast' + (toast.ok ? ' ok' : '')} role="status">{toast.texto}</div>}
     </div>
   );
 }
 
-function Clientes({ clientes, elegido, alElegir, alAgregar }: {
-  clientes: Cliente[]; elegido: Cliente; alElegir: (id: string) => void; alAgregar: (nombre: string) => void;
+function Clientes({ datos, elegido, alElegir, alAgregar }: {
+  datos: Datos; elegido: Cliente | undefined; alElegir: (id: string) => void; alAgregar: (nombre: string, recetas: Receta[]) => Promise<boolean>;
 }) {
   const [agregando, setAgregando] = useState(false);
   const [nombre, setNombre] = useState('');
+  const [recetas, setRecetas] = useState<Receta[]>(RECETAS);
   const [error, setError] = useState('');
+  const [esperando, setEsperando] = useState(false);
   const campo = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (agregando) campo.current?.focus(); }, [agregando]);
@@ -109,33 +139,37 @@ function Clientes({ clientes, elegido, alElegir, alAgregar }: {
   function cerrar() {
     setAgregando(false);
     setNombre('');
+    setRecetas(RECETAS);
     setError('');
   }
 
-  function enviar(e: FormEvent) {
+  async function enviar(e: FormEvent) {
     e.preventDefault();
     const limpio = nombre.trim().replace(/\s+/g, ' ');
     if (!limpio) {
       setError('Escribí el nombre del cliente.');
       return campo.current?.focus();
     }
-    alAgregar(limpio);
-    cerrar();
+    if (!recetas.length) return setError('Elegí al menos una receta.');
+    setEsperando(true);
+    const ok = await alAgregar(limpio, recetas);
+    setEsperando(false);
+    if (ok) cerrar();
   }
+
+  const alternarReceta = (r: Receta) =>
+    setRecetas(RECETAS.filter((x) => x === r ? !recetas.includes(r) : recetas.includes(x)));
 
   return (
     <section className="bloque" aria-labelledby="t-cliente">
       <h2 id="t-cliente">Cliente</h2>
       <div className="clientes" role="group" aria-label="Elegir cliente">
-        {clientes.map((c) => {
-          const lista = LISTAS[c.listaId];
-          return (
-            <button key={c.id} type="button" className="cliente-btn" aria-pressed={c.id === elegido.id} onClick={() => alElegir(c.id)}>
-              <span>{c.nombre}</span>
-              <small>{c.fijo ? 'Cliente fijo · ' : ''}{lista.nombre}{lista.recetas.length === 1 ? ` · solo ${lista.recetas[0]}` : ''}</small>
-            </button>
-          );
-        })}
+        {datos.clientes.map((c) => (
+          <button key={c.id} type="button" className="cliente-btn" aria-pressed={c.id === elegido?.id} onClick={() => alElegir(c.id)}>
+            <span>{c.nombre}</span>
+            <small>{listaDe(datos, c).recetas.join(' y ')}</small>
+          </button>
+        ))}
         <button type="button" className="cliente-btn nuevo" aria-expanded={agregando} onClick={() => agregando ? cerrar() : setAgregando(true)}>+ Otro cliente</button>
       </div>
       {agregando && (
@@ -144,10 +178,20 @@ function Clientes({ clientes, elegido, alElegir, alAgregar }: {
           <div className="nuevo-fila">
             <input ref={campo} className="input" id="nuevo-nombre" type="text" autoComplete="off" value={nombre}
               onChange={(e) => setNombre(e.target.value)} placeholder="Ej.: Salón de fiestas Los Álamos" aria-describedby="nuevo-ayuda" />
-            <button type="submit" className="btn">Agregar</button>
+          </div>
+          <p className="campo">Recetas que lleva</p>
+          <div className="eleccion" role="group" aria-label="Recetas que lleva">
+            {RECETAS.map((r) => (
+              <button key={r} type="button" className="eleccion-btn cuadrado" aria-pressed={recetas.includes(r)} onClick={() => alternarReceta(r)}>
+                <span className="eleccion-titulo">{r}</span>
+              </button>
+            ))}
+          </div>
+          <p className="ayuda" id="nuevo-ayuda">Arranca con los precios de la Lista general; después le cambiás los que sean distintos en "Editar precios y sabores".</p>
+          <div className="nuevo-fila">
+            <button type="submit" className="btn" disabled={esperando}>{esperando ? 'Agregando…' : 'Agregar cliente'}</button>
             <button type="button" className="btn sec" onClick={cerrar}>Cancelar</button>
           </div>
-          <p className="ayuda" id="nuevo-ayuda">Queda guardado en este dispositivo para las próximas cotizaciones y cotiza con la Lista general.</p>
           {error && <p className="error" role="alert">{error}</p>}
         </form>
       )}
@@ -158,15 +202,15 @@ function Clientes({ clientes, elegido, alElegir, alAgregar }: {
 const precioEn = (lista: ListaPrecios, saborId: string, receta: Receta) =>
   lista.recetas.includes(receta) ? lista.precios.find((p) => p.saborId === saborId && p.receta === receta)?.precio ?? null : null;
 
-function Buscador({ lista, alAgregar }: {
-  lista: ListaPrecios; alAgregar: (sabor: Sabor, receta: Receta, tachos: number) => void;
+function Buscador({ sabores, lista, alAgregar }: {
+  sabores: Sabor[]; lista: ListaPrecios; alAgregar: (sabor: Sabor, receta: Receta, tachos: number) => void;
 }) {
   const [busqueda, setBusqueda] = useState('');
   const [abierto, setAbierto] = useState<string | null>(null);
   const [receta, setReceta] = useState<Receta>('Familiar');
   const [tachos, setTachos] = useState(1);
 
-  const encontrados = useMemo(() => SABORES.filter((s) => coincide(busqueda, s.nombre)), [busqueda]);
+  const encontrados = useMemo(() => sabores.filter((s) => coincide(busqueda, s.nombre)), [sabores, busqueda]);
   const recetaActual = lista.recetas.includes(receta) ? receta : lista.recetas[0];
   const precioTexto = (s: Sabor, r: Receta) => { const p = precioEn(lista, s.id, r); return p == null ? 'sin precio' : formatearPesos(p); };
 
@@ -179,7 +223,7 @@ function Buscador({ lista, alAgregar }: {
   return (
     <section className="bloque buscar" aria-labelledby="t-agregar">
       <h2 id="t-agregar">Agregar sabor</h2>
-      <label className="campo">Buscar entre los {SABORES.length} sabores
+      <label className="campo">Buscar entre los {sabores.length} sabores
         <input className="input" type="search" autoComplete="off" value={busqueda} placeholder="Ej.: dulce de leche"
           onChange={(e) => { setBusqueda(e.target.value); setAbierto(null); }} />
       </label>
@@ -239,15 +283,15 @@ function Carrito({ cotizacion, cliente, alCambiar }: { cotizacion: CotizacionCal
   );
 }
 
-function Envases({ cotizacion: c, compraEnvases, alElegir, alCambiar }: {
-  cotizacion: CotizacionCalculada; compraEnvases: boolean | null; alElegir: (compra: boolean) => void; alCambiar: (n: number) => void;
+function Envases({ cotizacion: c, precioEnvase, compraEnvases, alElegir, alCambiar }: {
+  cotizacion: CotizacionCalculada; precioEnvase: number; compraEnvases: boolean | null; alElegir: (compra: boolean) => void; alCambiar: (n: number) => void;
 }) {
   return (
     <div className="envases">
       <h3>¿Compra envases?</h3>
       <div className="eleccion" role="group" aria-label="¿Compra envases?">
         <button type="button" className="eleccion-btn" aria-pressed={compraEnvases === true} onClick={() => alElegir(true)}>
-          <span className="eleccion-titulo">Sí, los compra</span><small className="num">{formatearPesos(PRECIO_ENVASE)} cada uno</small>
+          <span className="eleccion-titulo">Sí, los compra</span><small className="num">{formatearPesos(precioEnvase)} cada uno</small>
         </button>
         <button type="button" className="eleccion-btn" aria-pressed={compraEnvases === false} onClick={() => alElegir(false)}>
           <span className="eleccion-titulo">No, los devuelve</span><small>Quedan prestados</small>
@@ -257,7 +301,7 @@ function Envases({ cotizacion: c, compraEnvases, alElegir, alCambiar }: {
         <div className="fila">
           <span>Envases que compra</span>
           <Stepper valor={c.envasesComprados} etiqueta="envase" alCambiar={alCambiar} />
-          <span className="muted num">× {formatearPesos(PRECIO_ENVASE)}</span>
+          <span className="muted num">× {formatearPesos(precioEnvase)}</span>
         </div>
       )}
       <p className="info">

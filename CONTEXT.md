@@ -14,10 +14,6 @@ _Avoid_: vendedor, empleado, usuario
 Persona o comercio, cargado por los dueños con su nombre, al que la heladería le vende helado por tacho y le hace una cotización.
 _Avoid_: mayorista, comprador
 
-**Cliente fijo**:
-Cliente al que, por su antigüedad, la heladería le cotiza con una lista de precios especial en lugar de la Lista general (por ejemplo, Terminal).
-_Avoid_: mayorista, cliente con antigüedad
-
 ### Helado
 
 **Sabor**:
@@ -43,12 +39,12 @@ _Avoid_: reintegro, retorno
 ### Precios
 
 **Lista de precios**:
-Precio de cada sabor en las recetas que incluye. Cada cliente fijo cotiza con una lista especial, que puede tener una sola receta (la de Terminal solo tiene Familiar); los demás clientes, con la Lista general, que tiene las dos.
+Precio de cada sabor en las recetas que incluye. Cada cliente tiene la suya, y define qué recetas puede llevar (la de Terminal solo tiene Familiar). Los dueños la editan desde el sistema; si a un sabor le falta el precio, ese cliente no lo tiene en su lista.
 _Avoid_: hoja de precios, tarifa
 
 **Lista general**:
-Lista de precios para cualquier cliente que no es fijo.
-_Avoid_: precio mayorista
+Lista de precios base: cuando se agrega un cliente, su lista arranca como copia de la Lista general (con las recetas que lleva) y después se le cambian los precios que sean distintos. Cambiar la Lista general no cambia las listas de los clientes ya cargados.
+_Avoid_: precio mayorista, lista por defecto
 
 ### Cotización
 
