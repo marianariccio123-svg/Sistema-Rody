@@ -1,0 +1,20 @@
+# Consulta diaria a Supabase para que el plan gratuito no pause el proyecto por inactividad (ADR 0001).
+# Usa la llave publicable, la misma que va en la página: sin sesión, la consulta devuelve una lista vacía.
+# Si falla, GitHub manda un mail. En un repositorio público, GitHub apaga las tareas programadas
+# tras 60 días sin cambios en el repositorio: avisa por mail antes y se reactivan desde la pestaña Actions.
+name: Mantener Supabase activo
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # todos los días a las 9 de Argentina
+  workflow_dispatch:         # para correrla a mano desde la pestaña Actions
+
+jobs:
+  consultar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar la tabla de sabores
+        run: >
+          curl --fail-with-body --silent --show-error --max-time 30
+          'https://jvmotivafwihuygzugdn.supabase.co/rest/v1/sabores?select=id&limit=1'
+          -H 'apikey: sb_publishable_9kT3JjmbT6evuY3CFEfUTQ_6QUhMo0x'

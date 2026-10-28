@@ -24,3 +24,5 @@ Cada push a `claude/youthful-carson-jaomtm` dispara un deploy en Netlify, y el p
 2. Correr `npm run probar` (pruebas, tipos, build y la versión construida en `http://localhost:4173`, también accesible desde el celular en la misma red wifi).
 3. Pedir que se revise ahí.
 4. Hacer `git push` solo cuando se pida explícitamente; varios commits revisados viajan juntos en un solo push.
+
+Un push que solo cambia cosas que no van en la página (documentación, `.github/`, `supabase/`) lleva `[skip netlify]` en el mensaje del último commit: Netlify no lo construye y no gasta créditos.
