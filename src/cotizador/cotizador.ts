@@ -11,8 +11,10 @@ export type ListaPrecios = { nombre: string; recetas: Receta[]; precios: PrecioE
 
 export type Renglon = { saborId: string; sabor: string; receta: Receta; tachos: number };
 
+// precioLista es el de la lista de precios; precioUnitario, el que paga el cliente después del descuento.
 export type RenglonCalculado = Renglon & {
   estado: EstadoRenglon;
+  precioLista: number | null;
   precioUnitario: number | null;
   subtotal: number | null;
 };
@@ -23,6 +25,8 @@ export type CotizacionCalculada = {
   envasesComprados: number;
   envasesPrestados: number;
   totalEnvases: number;
+  descuento: number;         // porcentaje aplicado
+  montoDescuento: number;    // cuánto se le descontó al helado; solo lo ve el dueño
   total: number;
   esParcial: boolean;
 };
@@ -33,33 +37,51 @@ export type DatosCotizacion = {
   renglones: Renglon[];
   compraEnvases: boolean | null;   // null = todavía sin responder
   envasesComprados: number;
+  descuento?: number;              // porcentaje sobre el helado; sin descuento = 0
 };
 
 export function calcularCotizacion(d: DatosCotizacion): CotizacionCalculada {
-  const renglones = d.renglones.map((r) => calcularRenglon(d.lista, r));
+  const descuento = Math.max(0, Math.min(100, d.descuento ?? 0));
+  const renglones = d.renglones.map((r) => calcularRenglon(d.lista, r, descuento));
   const tachos = renglones.reduce((suma, r) => suma + r.tachos, 0);
   // Supone 1 envase por tacho.
   const envasesComprados = d.compraEnvases ? Math.max(0, Math.min(d.envasesComprados, tachos)) : 0;
   const totalEnvases = envasesComprados * d.precioEnvase;
   const totalHelado = renglones.reduce((suma, r) => suma + (r.subtotal ?? 0), 0);
+  const totalHeladoLista = renglones.reduce((suma, r) => suma + (r.precioLista ?? 0) * r.tachos, 0);
   return {
     renglones,
     tachos,
     envasesComprados,
     envasesPrestados: tachos - envasesComprados,
     totalEnvases,
+    descuento,
+    montoDescuento: totalHeladoLista - totalHelado,
     total: totalHelado + totalEnvases,
     esParcial: renglones.some((r) => r.estado !== 'ok'),
   };
 }
 
-function calcularRenglon(lista: ListaPrecios, r: Renglon): RenglonCalculado {
+// El descuento se aplica a cada precio unitario y se redondea al peso: así cada renglón del mensaje ya muestra
+// su precio final y la suma cierra, sin que se note el descuento. Se calcula con enteros para no arrastrar
+// errores de los decimales (41.250 con 3% da 40.012,5 y se redondea a 40.013).
+const conDescuento = (precio: number, descuento: number) => Math.round(precio * (100 - descuento) / 100);
+
+function calcularRenglon(lista: ListaPrecios, r: Renglon, descuento: number): RenglonCalculado {
   if (!lista.recetas.includes(r.receta)) {
-    return { ...r, estado: 'no-disponible', precioUnitario: null, subtotal: null };
+    return { ...r, estado: 'no-disponible', precioLista: null, precioUnitario: null, subtotal: null };
   }
   const fila = lista.precios.find((p) => p.saborId === r.saborId && p.receta === r.receta);
-  if (!fila) return { ...r, estado: 'sin-precio', precioUnitario: null, subtotal: null };
-  return { ...r, estado: 'ok', precioUnitario: fila.precio, subtotal: fila.precio * r.tachos };
+  if (!fila) return { ...r, estado: 'sin-precio', precioLista: null, precioUnitario: null, subtotal: null };
+  const precioUnitario = conDescuento(fila.precio, descuento);
+  return { ...r, estado: 'ok', precioLista: fila.precio, precioUnitario, subtotal: precioUnitario * r.tachos };
+}
+
+// Precio que paga el cliente por un tacho de ese sabor y receta, o null si su lista no lo tiene.
+export function precioConDescuento(lista: ListaPrecios, saborId: string, receta: Receta, descuento = 0) {
+  if (!lista.recetas.includes(receta)) return null;
+  const fila = lista.precios.find((p) => p.saborId === saborId && p.receta === receta);
+  return fila ? conDescuento(fila.precio, Math.max(0, Math.min(100, descuento))) : null;
 }
 
 const pesos = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });

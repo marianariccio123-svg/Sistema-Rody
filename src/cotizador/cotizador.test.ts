@@ -4,6 +4,7 @@ import {
   coincide,
   envasesAdeudados,
   normalizar,
+  precioConDescuento,
   textoWhatsApp,
   type ListaPrecios,
   type Renglon,
@@ -84,7 +85,7 @@ describe('calcular cotización', () => {
       envasesComprados: 0,
     });
     expect(c.renglones).toEqual([
-      { saborId: 'chocolate', sabor: 'Chocolate', receta: 'Artesanal', tachos: 3, estado: 'ok', precioUnitario: 48000, subtotal: 144000 },
+      { saborId: 'chocolate', sabor: 'Chocolate', receta: 'Artesanal', tachos: 3, estado: 'ok', precioLista: 48000, precioUnitario: 48000, subtotal: 144000 },
     ]);
   });
 
@@ -162,6 +163,91 @@ describe('calcular cotización', () => {
       envasesComprados: 2,
     });
     expect(c).toMatchObject({ tachos: 0, envasesComprados: 0, envasesPrestados: 0, total: 0, esParcial: false });
+  });
+});
+
+describe('descuento', () => {
+  it('Terminal con 10% de descuento cobra $317.800 y cada renglón trae su precio final', () => {
+    const c = calcularCotizacion({
+      lista: listaTerminal,
+      precioEnvase: PRECIO_ENVASE,
+      renglones: [chocolate(3), dulceDeLeche(2), frutillaCrema(1)],
+      compraEnvases: true,
+      envasesComprados: 2,
+      descuento: 10,
+    });
+    expect(c.renglones[0]).toMatchObject({ precioLista: 58000, precioUnitario: 52200, subtotal: 156600 });
+    expect(c.renglones[2]).toMatchObject({ precioLista: 52000, precioUnitario: 46800, subtotal: 46800 });
+    expect(c.total).toBe(317800);
+    expect(c.descuento).toBe(10);
+    expect(c.montoDescuento).toBe(34200);
+  });
+
+  it('no se aplica a los envases', () => {
+    const c = calcularCotizacion({
+      lista: listaTerminal,
+      precioEnvase: PRECIO_ENVASE,
+      renglones: [chocolate(3)],
+      compraEnvases: true,
+      envasesComprados: 2,
+      descuento: 10,
+    });
+    expect(c.totalEnvases).toBe(10000);
+    expect(c.total).toBe(156600 + 10000);
+  });
+
+  it('el precio con descuento se redondea al peso', () => {
+    const lista: ListaPrecios = { nombre: 'Lista general', recetas: ['Familiar'], precios: [{ saborId: 'chocolate', receta: 'Familiar', precio: 41250 }] };
+    const c = calcularCotizacion({
+      lista,
+      precioEnvase: PRECIO_ENVASE,
+      renglones: [chocolate(2)],
+      compraEnvases: false,
+      envasesComprados: 0,
+      descuento: 3,
+    });
+    expect(c.renglones[0]).toMatchObject({ precioLista: 41250, precioUnitario: 40013, subtotal: 80026 });
+  });
+
+  it('sin descuento, el precio final es el de lista', () => {
+    const c = calcularCotizacion({
+      lista: listaTerminal,
+      precioEnvase: PRECIO_ENVASE,
+      renglones: [chocolate(1)],
+      compraEnvases: false,
+      envasesComprados: 0,
+    });
+    expect(c.renglones[0]).toMatchObject({ precioLista: 58000, precioUnitario: 58000 });
+    expect(c.descuento).toBe(0);
+    expect(c.montoDescuento).toBe(0);
+  });
+
+  it('un descuento fuera de rango se limita entre 0% y 100%', () => {
+    const datos = { lista: listaTerminal, precioEnvase: PRECIO_ENVASE, renglones: [chocolate(1)], compraEnvases: false, envasesComprados: 0 };
+    expect(calcularCotizacion({ ...datos, descuento: -5 }).total).toBe(58000);
+    expect(calcularCotizacion({ ...datos, descuento: 150 }).total).toBe(0);
+  });
+
+  it('el precio de un tacho con descuento sale de la lista del cliente', () => {
+    expect(precioConDescuento(listaTerminal, 'chocolate', 'Familiar', 10)).toBe(52200);
+    expect(precioConDescuento(listaTerminal, 'chocolate', 'Familiar')).toBe(58000);
+    expect(precioConDescuento(listaTerminal, 'chocolate', 'Artesanal', 10)).toBeNull();
+    expect(precioConDescuento(listaGeneral, 'menta', 'Familiar', 10)).toBeNull();
+  });
+
+  it('en el mensaje aparecen los precios finales, sin mencionar el descuento', () => {
+    const c = calcularCotizacion({
+      lista: listaTerminal,
+      precioEnvase: PRECIO_ENVASE,
+      renglones: [chocolate(3)],
+      compraEnvases: false,
+      envasesComprados: 0,
+      descuento: 10,
+    });
+    const texto = textoWhatsApp(c, { heladeria: 'Heladería Kokino', cliente: 'Salón Los Álamos', fecha: new Date(2026, 9, 30) });
+    expect(texto).toContain('3 × Chocolate (Familiar): $156.600');
+    expect(texto).toContain('*Total: $156.600*');
+    expect(texto.toLowerCase()).not.toContain('descuento');
   });
 });
 
