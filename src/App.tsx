@@ -39,10 +39,10 @@ export function App() {
 
   const recargar = async () => setDatos(await cargarDatos());
 
-  async function agregarCliente(nombre: string, recetas: Receta[]) {
+  async function agregarCliente(nombre: string, recetas: Receta[], descuento: number) {
     const existente = datos?.clientes.find((c) => normalizar(c.nombre) === normalizar(nombre));
     if (existente) return { id: existente.id, yaExistia: true };
-    const id = await crearCliente(nombre, normalizar(nombre), recetas);
+    const id = await crearCliente({ nombre, nombreNormalizado: normalizar(nombre), listaId: listaGeneral(datos!), recetas, descuento });
     await recargar();
     return { id, yaExistia: false };
   }
@@ -75,6 +75,12 @@ export function App() {
   return <Acceso pantalla={pantalla as PantallaAcceso} mensajeInicial={mensaje} irA={irA} alEntrar={entrar} />;
 }
 
+function listaGeneral(datos: Datos) {
+  const base = datos.listas.find((l) => l.esBase);
+  if (!base) throw new Error('Falta la Lista general en la base de datos.');
+  return base.id;
+}
+
 // La versión sin base de datos (ADR 0002) guardaba en cada navegador los clientes agregados.
 // La primera vez que se entra desde ese dispositivo, se pasan a la base con la Lista general y se borran del navegador.
 const CLAVE_VIEJA = 'sistema-rody:clientes';
@@ -89,7 +95,7 @@ async function traerClientesDeEsteDispositivo(datos: Datos): Promise<Datos> {
   const faltan = viejos.filter((v) => !datos.clientes.some((c) => normalizar(c.nombre) === normalizar(v.nombre)));
   for (const v of faltan) {
     try {
-      await crearCliente(v.nombre, normalizar(v.nombre), ['Familiar', 'Artesanal']);
+      await crearCliente({ nombre: v.nombre, nombreNormalizado: normalizar(v.nombre), listaId: listaGeneral(datos), recetas: ['Familiar', 'Artesanal'], descuento: 0 });
     } catch (e) {
       if (!esRepetido(e)) throw e;   // ya lo había subido otro dispositivo, o estaba dos veces
     }

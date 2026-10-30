@@ -21,7 +21,7 @@ Cada variedad de helado que fabrica la heladería (por ejemplo, Ananá, Chocolat
 _Avoid_: gusto, producto
 
 **Receta**:
-Forma de elaborar un sabor: Familiar o Artesanal. Cada una tiene su propio precio, y la lista de precios del cliente define cuáles puede llevar.
+Forma de elaborar un sabor: Familiar o Artesanal. Cada una tiene su propio precio, y cada cliente lleva solo las recetas que tiene elegidas (Terminal, solo Familiar).
 _Avoid_: calidad, tipo, línea
 
 **Envase**:
@@ -39,15 +39,23 @@ _Avoid_: reintegro, retorno
 ### Precios
 
 **Lista de precios**:
-Precio de cada sabor en las recetas que incluye. Cada cliente tiene la suya, y define qué recetas puede llevar (la de Terminal solo tiene Familiar). Los dueños la editan desde el sistema; si a un sabor le falta el precio, ese cliente no lo tiene en su lista.
+Precio de cada sabor en las recetas que incluye. Hay una Lista general y listas especiales; los dueños las editan desde el sistema. Si a un sabor le falta el precio en una lista, no se puede cotizar con esa lista.
 _Avoid_: hoja de precios, tarifa
 
 **Lista general**:
-Lista de precios base: cuando se agrega un cliente, su lista arranca como copia de la Lista general (con las recetas que lleva) y después se le cambian los precios que sean distintos. Cambiar la Lista general no cambia las listas de los clientes ya cargados.
-_Avoid_: precio mayorista, lista por defecto
+Lista de precios que comparten todos los clientes que no tienen una lista especial; cada uno paga estos precios menos su descuento. Un aumento en la Lista general les llega a todos.
+_Avoid_: precio mayorista, lista por defecto, lista base
+
+**Lista especial**:
+Lista de precios propia de un cliente cuyos precios no son la Lista general con un descuento (por ejemplo, la de Terminal, que solo tiene Familiar).
+_Avoid_: lista del cliente, lista copiada
+
+**Descuento**:
+Porcentaje que se le resta al precio de lista del helado de un cliente. Cada cliente tiene un descuento habitual que se puede cambiar en cada cotización; no se aplica a los envases, y el cliente solo ve los precios ya descontados.
+_Avoid_: bonificación, rebaja
 
 ### Cotización
 
 **Cotización**:
-Detalle de los sabores y cantidades que se lleva un cliente, con los precios de su lista de precios, sus envases comprados y el total. Se guarda cuando el cliente se lleva el helado, se corrige hasta que refleja lo que realmente se llevó, y conserva los precios del momento en que se hizo.
+Detalle de los sabores y cantidades que se lleva un cliente, con los precios de su lista de precios menos su descuento, sus envases comprados y el total. Se guarda cuando el cliente se lleva el helado, se corrige hasta que refleja lo que realmente se llevó, y conserva los precios del momento en que se hizo.
 _Avoid_: presupuesto, pedido

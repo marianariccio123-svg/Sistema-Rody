@@ -1,5 +1,7 @@
--- Esquema de Sistema Rody (ADR 0003): cada cliente tiene su lista de precios, y los dueños editan precios y sabores.
--- Correr una sola vez en Supabase: SQL Editor -> New query -> pegar todo -> Run.
+-- Esquema de Sistema Rody (ADR 0004): los clientes cotizan con la Lista general menos su descuento,
+-- salvo los que tienen una lista especial como Terminal; los dueños editan precios, sabores y clientes.
+-- Correr una sola vez en Supabase, en un proyecto nuevo: SQL Editor -> New query -> pegar todo -> Run.
+-- Una base creada con la versión anterior (ADR 0003) se actualiza con migraciones/0004-descuento-por-cliente.sql.
 -- Reemplaza la tabla "precios" del prototipo.
 
 drop table if exists precios;
@@ -10,7 +12,7 @@ create table sabores (
   orden  int  not null           -- orden en que se muestran
 );
 
--- La lista base (Lista general) es la que se copia al crear un cliente.
+-- La lista base (Lista general) es la que usan los clientes que no tienen una lista especial.
 create table listas_precios (
   id      uuid    primary key default gen_random_uuid(),
   nombre  text    not null,
@@ -29,10 +31,13 @@ create table precios (
 );
 
 create table clientes (
-  id                 uuid primary key default gen_random_uuid(),
-  nombre             text not null,
-  nombre_normalizado text not null unique,   -- sin mayúsculas, acentos ni espacios de más: evita duplicados
-  lista_id           uuid not null unique references listas_precios
+  id                 uuid   primary key default gen_random_uuid(),
+  nombre             text   not null,
+  nombre_normalizado text   not null unique,   -- sin mayúsculas, acentos ni espacios de más: evita duplicados
+  lista_id           uuid   not null references listas_precios,   -- varios clientes comparten la Lista general
+  recetas            text[] not null constraint clientes_recetas_validas
+                            check (cardinality(recetas) > 0 and recetas <@ array['Familiar', 'Artesanal']),
+  descuento          int    not null default 0 check (descuento between 0 and 100)   -- porcentaje sobre el helado
 );
 
 create table ajustes (
@@ -52,29 +57,6 @@ create policy "Dueños con sesión" on precios        for all to authenticated u
 create policy "Dueños con sesión" on clientes       for all to authenticated using (true) with check (true);
 create policy "Dueños con sesión" on ajustes        for all to authenticated using (true) with check (true);
 grant select, insert, update, delete on sabores, listas_precios, precios, clientes, ajustes to authenticated;
-
--- Crea un cliente con su propia lista, copiando de la lista base los precios de las recetas que lleva.
-create function crear_cliente(p_nombre text, p_nombre_normalizado text, p_recetas text[])
-returns uuid
-language plpgsql
-set search_path = public
-as $$
-declare
-  v_lista   uuid;
-  v_cliente uuid;
-begin
-  insert into listas_precios (nombre, recetas) values ('Lista ' || p_nombre, p_recetas) returning id into v_lista;
-  insert into precios (lista_id, sabor_id, receta, precio)
-    select v_lista, p.sabor_id, p.receta, p.precio
-    from precios p join listas_precios l on l.id = p.lista_id
-    where l.es_base and p.receta = any (p_recetas);
-  insert into clientes (nombre, nombre_normalizado, lista_id)
-    values (p_nombre, p_nombre_normalizado, v_lista) returning id into v_cliente;
-  return v_cliente;
-end;
-$$;
-revoke execute on function crear_cliente from public, anon;
-grant execute on function crear_cliente to authenticated;
 
 -- Datos iniciales: precios del Excel "Precios 22/04/26 Terminal" (provisorios hasta que lleguen las listas nuevas).
 insert into ajustes (precio_envase) values (5000);
@@ -125,8 +107,8 @@ insert into listas_precios (nombre, recetas, es_base) values
   ('Lista general',  array['Familiar', 'Artesanal'], true),
   ('Lista Terminal', array['Familiar'], false);
 
-insert into clientes (nombre, nombre_normalizado, lista_id)
-  select 'Terminal', 'terminal', id from listas_precios where nombre = 'Lista Terminal';
+insert into clientes (nombre, nombre_normalizado, lista_id, recetas)
+  select 'Terminal', 'terminal', id, array['Familiar'] from listas_precios where nombre = 'Lista Terminal';
 
 -- sabor, Lista Terminal (Familiar), Lista general Familiar, Lista general Artesanal; null = sin precio.
 with tabla (sabor, terminal, familiar, artesanal) as (values

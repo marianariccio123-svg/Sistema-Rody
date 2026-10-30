@@ -1,5 +1,7 @@
 # Una lista de precios por cliente, editable y guardada en Supabase
 
+_Reemplazado en parte por el ADR 0004: los clientes ya no tienen una lista copiada, sino la Lista general con su descuento. Sigue valiendo que los precios viven en Supabase y se editan desde el sistema._
+
 Cada cliente mayorista paga un precio distinto, y los dueños quieren cambiar precios y agregar sabores desde el sistema. Esos cambios tienen que verse en todos los dispositivos de los dos dueños y no perderse, así que se retoma Supabase como base de datos con inicio de sesión (ADR 0001), y deja de valer el ADR 0002.
 
 Cada cliente tiene su propia lista de precios. Al agregarlo, se eligen las recetas que lleva y su lista arranca como copia de la Lista general para esas recetas; después se le cambian los precios que sean distintos. La Lista general queda como base para los clientes nuevos, no como la lista de "cualquier cliente".

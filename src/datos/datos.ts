@@ -5,7 +5,8 @@ import { db } from './supabase';
 
 export type Sabor = { id: string; nombre: string; orden: number };
 export type Lista = ListaPrecios & { id: string; esBase: boolean };
-export type Cliente = { id: string; nombre: string; listaId: string };
+// recetas: las que lleva; descuento: porcentaje habitual sobre el precio de lista del helado.
+export type Cliente = { id: string; nombre: string; listaId: string; recetas: Receta[]; descuento: number };
 export type Datos = { sabores: Sabor[]; listas: Lista[]; clientes: Cliente[]; precioEnvase: number };
 
 // Supabase devuelve como mucho 1000 filas por consulta: los precios se traen de a tandas.
@@ -24,7 +25,7 @@ export async function cargarDatos(): Promise<Datos> {
   const [sabores, listas, clientes, ajustes, precios] = await Promise.all([
     db.from('sabores').select('id, nombre, orden').order('orden'),
     db.from('listas_precios').select('id, nombre, recetas, es_base'),
-    db.from('clientes').select('id, nombre, lista_id').order('nombre'),
+    db.from('clientes').select('id, nombre, lista_id, recetas, descuento').order('nombre'),
     db.from('ajustes').select('precio_envase').single(),
     todosLosPrecios(),
   ]);
@@ -38,16 +39,23 @@ export async function cargarDatos(): Promise<Datos> {
   return {
     sabores: sabores.data!,
     listas: listas.data!.map((l) => ({ id: l.id, nombre: l.nombre, recetas: l.recetas, esBase: l.es_base, precios: porLista.get(l.id) ?? [] })),
-    clientes: clientes.data!.map((c) => ({ id: c.id, nombre: c.nombre, listaId: c.lista_id })),
+    clientes: clientes.data!.map((c) => ({ id: c.id, nombre: c.nombre, listaId: c.lista_id, recetas: c.recetas, descuento: c.descuento })),
     precioEnvase: ajustes.data!.precio_envase,
   };
 }
 
-// Crea el cliente con su propia lista, copiando los precios de la Lista general para las recetas que lleva.
-export async function crearCliente(nombre: string, nombreNormalizado: string, recetas: Receta[]): Promise<string> {
-  const { data, error } = await db.rpc('crear_cliente', { p_nombre: nombre, p_nombre_normalizado: nombreNormalizado, p_recetas: recetas });
+// Los clientes nuevos cotizan con la Lista general (ADR 0004).
+export async function crearCliente(c: { nombre: string; nombreNormalizado: string; listaId: string; recetas: Receta[]; descuento: number }): Promise<string> {
+  const { data, error } = await db.from('clientes')
+    .insert({ nombre: c.nombre, nombre_normalizado: c.nombreNormalizado, lista_id: c.listaId, recetas: c.recetas, descuento: c.descuento })
+    .select('id').single();
   if (error) throw error;
-  return data as string;
+  return data.id;
+}
+
+export async function guardarCliente(id: string, cambios: { recetas?: Receta[]; descuento?: number }) {
+  const { error } = await db.from('clientes').update(cambios).eq('id', id);
+  if (error) throw error;
 }
 
 export async function guardarPrecios(listaId: string, cambios: CambioPrecio[]) {
@@ -64,12 +72,10 @@ export async function guardarPrecios(listaId: string, cambios: CambioPrecio[]) {
   }
 }
 
-// Borra el cliente y su lista de precios (los precios de la lista se borran solos).
+// Borra solo el cliente: su lista de precios puede ser la Lista general, que comparten todos.
 export async function eliminarCliente(cliente: Cliente) {
   const { error } = await db.from('clientes').delete().eq('id', cliente.id);
   if (error) throw error;
-  const lista = await db.from('listas_precios').delete().eq('id', cliente.listaId);
-  if (lista.error) throw lista.error;
 }
 
 export async function cambiarRecetas(listaId: string, recetas: Receta[]) {

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { coincide, formatearPesos, normalizar, type Receta } from '../cotizador/cotizador';
 import { cambiosDePrecios, claveDePrecio, leerPrecio } from '../cotizador/editorPrecios';
-import { agregarSabor, cambiarRecetas, eliminarCliente, esRepetido, guardarPrecioEnvase, guardarPrecios, type Cliente, type Datos } from '../datos/datos';
+import {
+  agregarSabor, cambiarRecetas, eliminarCliente, esRepetido, guardarCliente, guardarPrecioEnvase, guardarPrecios,
+  type Cliente, type Datos, type Lista,
+} from '../datos/datos';
 
 const RECETAS: Receta[] = ['Familiar', 'Artesanal'];
 const miles = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
@@ -16,7 +19,10 @@ type Props = {
 
 export function Precios({ datos, alCambiarDatos, alVolver }: Props) {
   const base = datos.listas.find((l) => l.esBase);
-  const [listaId, setListaId] = useState(base?.id ?? datos.listas[0]?.id);
+  // Se editan la Lista general y las listas especiales que usa algún cliente (como la de Terminal).
+  const listas = datos.listas.filter((l) => l.esBase || datos.clientes.some((c) => c.listaId === l.id));
+  const usanLista = (id: string) => datos.clientes.filter((c) => c.listaId === id);
+  const [listaId, setListaId] = useState(base?.id ?? listas[0]?.id);
   const [borrador, setBorrador] = useState<Record<string, string>>({});
   const [busqueda, setBusqueda] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -69,32 +75,19 @@ export function Precios({ datos, alCambiarDatos, alVolver }: Props) {
     }
   }
 
-  async function eliminar(cliente: Cliente) {
-    if (!window.confirm(`¿Eliminar a ${cliente.nombre}? Se borran el cliente y su lista de precios, y no se puede deshacer.`)) return;
-    try {
-      await eliminarCliente(cliente);
-      if (base) setListaId(base.id);
-      setBorrador({});
-      await alCambiarDatos();
-      setToast({ texto: `${cliente.nombre} eliminado.`, ok: true });
-    } catch {
-      setToast({ texto: 'No se pudo eliminar. Revisá la conexión y probá de nuevo.', ok: false });
-    }
-  }
-
   function volver() {
     if (descartarSiHayCambios()) alVolver();
   }
 
   if (!lista) return null;
-  const cliente = datos.clientes.find((c) => c.listaId === lista.id);
+  const nombresQueLaUsan = usanLista(lista.id).map((c) => c.nombre).join(', ');
 
   return (
     <div className="app">
       <header className="top-fila">
         <div>
           <p className="eyebrow">Sistema Rody</p>
-          <h1>Precios y sabores</h1>
+          <h1>Precios, sabores y clientes</h1>
         </div>
         <button type="button" className="link-btn" onClick={volver}>Volver a cotizar</button>
       </header>
@@ -103,24 +96,23 @@ export function Precios({ datos, alCambiarDatos, alVolver }: Props) {
         <section className="bloque" aria-labelledby="t-lista">
           <h2 id="t-lista">Lista de precios</h2>
           <div className="clientes" role="group" aria-label="Elegir lista">
-            {base && (
-              <button type="button" className="cliente-btn" aria-pressed={listaId === base.id} onClick={() => elegirLista(base.id)}>
-                <span>{base.nombre}</span><small>Base para clientes nuevos</small>
-              </button>
-            )}
-            {datos.clientes.map((c) => (
-              <button key={c.id} type="button" className="cliente-btn" aria-pressed={listaId === c.listaId} onClick={() => elegirLista(c.listaId)}>
-                <span>{c.nombre}</span><small>{datos.listas.find((l) => l.id === c.listaId)?.recetas.join(' y ')}</small>
-              </button>
-            ))}
+            {listas.map((l) => {
+              const usan = usanLista(l.id);
+              return (
+                <button key={l.id} type="button" className="cliente-btn" aria-pressed={listaId === l.id} onClick={() => elegirLista(l.id)}>
+                  <span>{l.nombre}</span>
+                  <small>{l.esBase ? `La usan ${usan.length} ${usan.length === 1 ? 'cliente' : 'clientes'}` : usan.map((c) => c.nombre).join(', ')}</small>
+                </button>
+              );
+            })}
           </div>
           <p className="ayuda">
             {lista.esBase
-              ? 'Cuando se agrega un cliente, arranca con estos precios. Cambiarlos acá no cambia los de los clientes que ya están cargados.'
-              : `Precios que se le cotizan a ${cliente?.nombre ?? 'este cliente'}.`}
+              ? 'La usan todos los clientes que no tienen una lista especial, cada uno con su descuento. Un aumento acá les llega a todos.'
+              : `Lista especial de ${nombresQueLaUsan || 'ningún cliente'}, con sus propios precios.`}
           </p>
           <div className="recetas-lista">
-            <span className="campo">Recetas que lleva</span>
+            <span className="campo">Recetas de la lista</span>
             <div className="eleccion" role="group" aria-label="Recetas de la lista">
               {RECETAS.map((r) => (
                 <button key={r} type="button" className="eleccion-btn cuadrado" aria-pressed={lista.recetas.includes(r)} onClick={() => alternarReceta(r)}>
@@ -129,12 +121,11 @@ export function Precios({ datos, alCambiarDatos, alVolver }: Props) {
               ))}
             </div>
           </div>
-          {cliente && <button type="button" className="link-btn peligro" onClick={() => eliminar(cliente)}>Eliminar a {cliente.nombre}</button>}
         </section>
 
         <section className="bloque" aria-labelledby="t-precios">
           <div className="top-fila">
-            <h2 id="t-precios">Precios de {cliente?.nombre ?? lista.nombre}</h2>
+            <h2 id="t-precios">Precios de la {lista.nombre}</h2>
           </div>
           <div className="buscar-fila">
             <label className="campo">Buscar sabor
@@ -174,6 +165,16 @@ export function Precios({ datos, alCambiarDatos, alVolver }: Props) {
         </section>
 
         <PrecioEnvase precio={datos.precioEnvase} alGuardar={async () => { await alCambiarDatos(); setToast({ texto: 'Precio del envase guardado.', ok: true }); }} avisar={setToast} />
+
+        <section className="bloque" aria-labelledby="t-clientes">
+          <h2 id="t-clientes">Clientes</h2>
+          <p className="ayuda">Las recetas que lleva cada uno y su descuento habitual sobre su lista de precios. En cada cotización el descuento se puede cambiar.</p>
+          <ul className="lista-clientes">
+            {datos.clientes.map((c) => (
+              <ClienteConfig key={c.id} cliente={c} lista={datos.listas.find((l) => l.id === c.listaId)} alCambiar={alCambiarDatos} avisar={setToast} />
+            ))}
+          </ul>
+        </section>
       </main>
 
       {pendientes > 0 && (
@@ -185,6 +186,79 @@ export function Precios({ datos, alCambiarDatos, alVolver }: Props) {
       )}
       {toast && <div className={'toast' + (toast.ok ? ' ok' : '') + (pendientes ? ' sobre-barra' : '')} role="status">{toast.texto}</div>}
     </div>
+  );
+}
+
+function ClienteConfig({ cliente, lista, alCambiar, avisar }: {
+  cliente: Cliente; lista: Lista | undefined; alCambiar: () => Promise<void>; avisar: (t: Toast) => void;
+}) {
+  const [descuento, setDescuento] = useState(String(cliente.descuento));
+  const [esperando, setEsperando] = useState(false);
+  useEffect(() => setDescuento(String(cliente.descuento)), [cliente.descuento]);
+
+  const nuevo = /^\d{1,3}$/.test(descuento.trim()) && Number(descuento) <= 100 ? Number(descuento) : null;
+  // Solo se pueden elegir recetas que tenga su lista (Terminal solo tiene Familiar: no hay nada que elegir).
+  const recetasDeLaLista = lista?.recetas ?? [];
+
+  async function guardar(cambios: { recetas?: Receta[]; descuento?: number }, aviso?: string) {
+    setEsperando(true);
+    try {
+      await guardarCliente(cliente.id, cambios);
+      await alCambiar();
+      if (aviso) avisar({ texto: aviso, ok: true });
+    } catch {
+      avisar({ texto: 'No se pudo guardar. Revisá la conexión y probá de nuevo.', ok: false });
+    }
+    setEsperando(false);
+  }
+
+  function alternarReceta(r: Receta) {
+    const recetas = RECETAS.filter((x) => x === r ? !cliente.recetas.includes(r) : cliente.recetas.includes(x));
+    if (!recetas.length) return avisar({ texto: 'El cliente tiene que llevar al menos una receta.', ok: false });
+    guardar({ recetas });
+  }
+
+  function guardarDescuento(e: FormEvent) {
+    e.preventDefault();
+    if (nuevo == null) return avisar({ texto: 'El descuento tiene que ser un número entre 0 y 100.', ok: false });
+    guardar({ descuento: nuevo }, `Descuento habitual de ${cliente.nombre}: ${nuevo}%.`);
+  }
+
+  async function eliminar() {
+    if (!window.confirm(`¿Eliminar a ${cliente.nombre}? No se puede deshacer.`)) return;
+    try {
+      await eliminarCliente(cliente);
+      await alCambiar();
+      avisar({ texto: `${cliente.nombre} eliminado.`, ok: true });
+    } catch {
+      avisar({ texto: 'No se pudo eliminar. Revisá la conexión y probá de nuevo.', ok: false });
+    }
+  }
+
+  return (
+    <li className="cliente-config">
+      <div className="top-fila">
+        <strong>{cliente.nombre}</strong>
+        <small className="muted">{lista?.nombre}</small>
+      </div>
+      {recetasDeLaLista.length > 1 && (
+        <div className="eleccion" role="group" aria-label={`Recetas que lleva ${cliente.nombre}`}>
+          {recetasDeLaLista.map((r) => (
+            <button key={r} type="button" className="eleccion-btn cuadrado" aria-pressed={cliente.recetas.includes(r)} disabled={esperando} onClick={() => alternarReceta(r)}>
+              <span className="eleccion-titulo">{r}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <form className="fila" onSubmit={guardarDescuento} noValidate>
+        <label className="con-sufijo">Descuento habitual
+          <input className="input input-corto num" type="number" inputMode="numeric" min={0} max={100}
+            value={descuento} onChange={(e) => setDescuento(e.target.value)} /> %
+        </label>
+        <button type="submit" className="btn sec" disabled={esperando || nuevo === cliente.descuento}>Guardar</button>
+      </form>
+      <button type="button" className="link-btn peligro" onClick={eliminar}>Eliminar a {cliente.nombre}</button>
+    </li>
   );
 }
 
